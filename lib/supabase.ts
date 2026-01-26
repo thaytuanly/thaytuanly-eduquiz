@@ -8,14 +8,14 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 const createSafeClient = () => {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn(
-      'Supabase configuration is missing! If you are seeing this on Vercel, please add SUPABASE_URL and SUPABASE_ANON_KEY to your Project Environment Variables.'
+      '⚠️ SUPABASE_URL hoặc SUPABASE_ANON_KEY chưa được thiết lập! Hãy kiểm tra Environment Variables trên Vercel.'
     );
     
     // Return a proxy that catches any property access to prevent crashes
     return new Proxy({}, {
       get: (target, prop) => {
         return () => {
-          console.error(`Supabase call to "${String(prop)}" failed because the client is not configured.`);
+          console.error(`Lỗi: Không thể thực hiện lệnh "${String(prop)}" do chưa cấu hình Supabase.`);
           return {
             from: () => ({
               select: () => ({ 
