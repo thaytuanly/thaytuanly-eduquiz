@@ -1,0 +1,8 @@
+{
+  "name": "EduQuiz Pro - Hệ Thống Thi Đấu Trực Tuyến",
+  "description": "Một nền tảng quản lý và tổ chức thi đấu trực tuyến cho học sinh với tính năng trả lời trắc nghiệm, trả lời ngắn và bấm chuông nhanh (buzzer), hỗ trợ đồng bộ thời gian thực.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
