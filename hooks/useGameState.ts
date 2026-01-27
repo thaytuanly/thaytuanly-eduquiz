@@ -7,7 +7,8 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
-  const isFetching = useRef(false);
+  const [responses, setResponses] = useState<any[]>([]);
+  const isInitialFetched = useRef(false);
 
   const mapQuestions = (rawQuestions: any[]): Question[] => {
     return (rawQuestions || []).map((q: any) => ({
@@ -24,8 +25,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   };
 
   const fetchState = useCallback(async () => {
-    if (!initialCode || isFetching.current) return;
-    isFetching.current = true;
+    if (!initialCode) return;
 
     try {
       const { data: match, error: matchError } = await supabase
@@ -34,17 +34,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         .eq('code', initialCode)
         .maybeSingle();
 
-      if (matchError) {
-        console.error("Fetch State Error:", matchError);
-        isFetching.current = false;
-        return;
-      }
-
-      if (!match) {
-        console.warn("No match found for code:", initialCode);
-        isFetching.current = false;
-        return;
-      }
+      if (matchError || !match) return;
 
       const { data: players } = await supabase
         .from('players')
@@ -55,7 +45,8 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
       setMatchId(match.id);
       setQuestionStartedAt(match.question_started_at);
       
-      setGameState({
+      setGameState(prev => ({
+        ...prev,
         matchCode: match.code,
         status: match.status as GameStatus,
         currentQuestionIndex: match.current_question_index,
@@ -66,11 +57,21 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         activeBuzzerPlayerId: match.active_buzzer_player_id,
         buzzerP1Id: match.buzzer_p1_id,
         buzzerP2Id: match.buzzer_p2_id
-      });
+      }));
+
+      // Lấy responses cho câu hiện tại
+      if (match.current_question_index >= 0) {
+        const currentQ = match.questions.find((q: any) => q.sort_order === match.current_question_index) || match.questions[match.current_question_index];
+        if (currentQ) {
+          const { data: resp } = await supabase.from('responses').select('*').eq('question_id', currentQ.id);
+          setResponses(resp || []);
+        }
+      } else {
+        setResponses([]);
+      }
+      isInitialFetched.current = true;
     } catch (e) {
-      console.error("Critical State Error:", e);
-    } finally {
-      isFetching.current = false;
+      console.error("Supabase Sync Error:", e);
     }
   }, [initialCode]);
 
@@ -82,13 +83,27 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     if (!matchId) return;
 
     const channel = supabase
-      .channel(`game_room_${matchId}`)
+      .channel(`realtime_room_${matchId}`)
       .on('postgres_changes', { 
-        event: '*', 
+        event: 'UPDATE', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
-      }, () => fetchState())
+      }, (payload) => {
+        const updated = payload.new;
+        setQuestionStartedAt(updated.question_started_at);
+        setGameState(prev => prev ? ({
+          ...prev,
+          status: updated.status as GameStatus,
+          currentQuestionIndex: updated.current_question_index,
+          activeBuzzerPlayerId: updated.active_buzzer_player_id,
+          buzzerP1Id: updated.buzzer_p1_id,
+          buzzerP2Id: updated.buzzer_p2_id
+        }) : null);
+        
+        // Nếu chuyển câu, nạp lại state để lấy responses mới
+        fetchState();
+      })
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -96,11 +111,21 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         filter: `match_id=eq.${matchId}`
       }, () => fetchState())
       .on('postgres_changes', { 
-        event: 'INSERT', 
+        event: '*', 
         schema: 'public', 
         table: 'responses',
         filter: `match_id=eq.${matchId}`
-      }, () => {
+      }, (payload) => {
+        // Cập nhật responses ngay lập tức
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          setResponses(prev => {
+            const exists = prev.find(r => r.id === payload.new.id);
+            if (exists) return prev.map(r => r.id === payload.new.id ? payload.new : r);
+            return [...prev, payload.new];
+          });
+        } else if (payload.eventType === 'DELETE') {
+          fetchState(); // Nạp lại nếu bị xóa
+        }
         window.dispatchEvent(new CustomEvent('sync_responses'));
       })
       .subscribe();
@@ -110,21 +135,5 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     };
   }, [matchId, fetchState]);
 
-  const broadcastState = useCallback(async (newState: GameState) => {
-    if (!matchId) return;
-    try {
-      await supabase.from('matches').update({
-        status: newState.status,
-        current_question_index: newState.currentQuestionIndex,
-        timer: newState.timer,
-        active_buzzer_player_id: newState.activeBuzzerPlayerId,
-        buzzer_p1_id: newState.buzzerP1Id,
-        buzzer_p2_id: newState.buzzerP2Id
-      }).eq('id', matchId);
-    } catch (e) {
-      console.error("Failed to broadcast state:", e);
-    }
-  }, [matchId]);
-
-  return { gameState, broadcastState, matchId, refresh: fetchState, questionStartedAt };
+  return { gameState, matchId, refresh: fetchState, questionStartedAt, responses };
 };
