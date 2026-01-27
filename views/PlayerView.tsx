@@ -27,7 +27,7 @@ const PlayerView: React.FC = () => {
     }
   }, [routeCode]);
 
-  // RESET KHI CHUYỂN CÂU HỎI
+  // RESET KHI CHUYỂN CÂU HỎI HOẶC TRẠNG THÁI
   useEffect(() => {
     if (joined && myPlayerId && gameState?.currentQuestionIndex !== undefined) {
       setSubmitted(false);
@@ -61,7 +61,7 @@ const PlayerView: React.FC = () => {
 
   const joinGame = async () => {
     if (!routeCode || !name || !matchId) {
-      alert("Hệ thống đang chuẩn bị, vui lòng đợi giây lát...");
+      alert("Đang chuẩn bị phòng, vui lòng đợi...");
       return;
     }
     setLoading(true);
@@ -74,14 +74,15 @@ const PlayerView: React.FC = () => {
       localStorage.setItem(`edu_quiz_id_${routeCode}`, data.id);
       localStorage.setItem(`edu_quiz_name_${routeCode}`, safeName);
     } catch (error: any) {
-      alert("Lỗi: " + error.message);
+      alert("Lỗi tham gia: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleConfirmAnswer = async () => {
-    if (!gameState || !myPlayerId || submitted || !matchId || !localAnswer) return;
+    // KHÓA: Nếu đã gửi, hoặc hết giờ, hoặc trạng thái không phải QUESTION_ACTIVE
+    if (!gameState || !myPlayerId || submitted || !matchId || !localAnswer || gameState.timer <= 0 || gameState.status !== GameStatus.QUESTION_ACTIVE) return;
     
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
     if (!currentQ) return;
@@ -117,16 +118,16 @@ const PlayerView: React.FC = () => {
 
       setSubmitted(true);
     } catch (error: any) {
-      alert("Lỗi: " + error.message);
+      alert("Lỗi gửi đáp án: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleBuzzer = async () => {
-    if (!gameState || !myPlayerId || !matchId || gameState.status !== GameStatus.QUESTION_ACTIVE) return;
+    if (!gameState || !myPlayerId || !matchId || gameState.status !== GameStatus.QUESTION_ACTIVE || gameState.timer <= 0) return;
     
-    // Kiểm tra trực tiếp từ DB để đảm bảo tính nguyên tử
+    // Kiểm tra trực tiếp từ Database để đảm tự tính nguyên tử cao
     const { data: latestMatch } = await supabase.from('matches').select('buzzer_p1_id, buzzer_p2_id').eq('id', matchId).single();
     
     if (latestMatch?.buzzer_p1_id === myPlayerId || latestMatch?.buzzer_p2_id === myPlayerId) return;
@@ -138,7 +139,7 @@ const PlayerView: React.FC = () => {
       } else if (!latestMatch?.buzzer_p2_id) {
         await supabase.from('matches').update({ buzzer_p2_id: myPlayerId, buzzer_t2: now }).eq('id', matchId);
       }
-      refresh(); // Buộc cập nhật state ngay sau khi nhấn
+      refresh(); // Cập nhật state cục bộ ngay lập tức
     } catch (e) {
       console.error("Buzzer error:", e);
     }
@@ -153,14 +154,14 @@ const PlayerView: React.FC = () => {
   if (!joined) {
     return (
       <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-6 font-inter">
-        <div className="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-500">
-          <h1 className="text-3xl font-black text-center mb-8 tracking-tighter">EduQuiz <span className="text-indigo-600">Pro</span></h1>
+        <div className="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-500 border-t-8 border-emerald-400">
+          <h1 className="text-3xl font-black text-center mb-8 tracking-tighter uppercase">EduQuiz <span className="text-indigo-600">Pro</span></h1>
           <div className="space-y-4">
             <input 
-              placeholder="Nhập tên thi đấu..." 
+              placeholder="Họ tên của bạn..." 
               value={name} 
               onChange={e => setName(e.target.value)} 
-              className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold outline-none transition-all" 
+              className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold outline-none transition-all shadow-inner" 
               onKeyPress={(e) => e.key === 'Enter' && joinGame()}
             />
             <button 
@@ -179,12 +180,13 @@ const PlayerView: React.FC = () => {
   if (!gameState) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
       <div className="w-16 h-16 border-8 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-      <p className="font-black text-indigo-600 uppercase tracking-widest text-xl">Đang tải trận đấu...</p>
+      <p className="font-black text-indigo-600 uppercase tracking-widest text-xl animate-pulse">Tìm kiếm trận đấu...</p>
     </div>
   );
 
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
   const myPlayerData = gameState.players.find(p => p.id === myPlayerId);
+  const isTimeUp = gameState.timer <= 0;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col pb-36 font-inter">
@@ -204,58 +206,68 @@ const PlayerView: React.FC = () => {
           <div className="flex flex-col flex-1 animate-in slide-in-from-bottom-6 duration-500">
             <div className="h-[30vh] bg-black relative flex items-center justify-center overflow-hidden">
                <MediaRenderer url={currentQ.mediaUrl} type={currentQ.mediaType} />
-               <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-black text-white uppercase tracking-widest">Hình ảnh minh họa</div>
-               <div className={`absolute top-4 right-4 bg-white/20 backdrop-blur-xl px-5 py-2 rounded-2xl text-2xl font-black text-white font-mono border border-white/20 ${gameState.timer < 10 ? 'bg-rose-600/50 animate-pulse' : ''}`}>
+               <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-black text-white uppercase tracking-widest border border-white/10">Minh họa</div>
+               <div className={`absolute top-4 right-4 bg-white/20 backdrop-blur-xl px-5 py-2 rounded-2xl text-2xl font-black text-white font-mono border border-white/20 ${isTimeUp ? 'bg-rose-600/50' : gameState.timer < 10 ? 'bg-rose-500/50 animate-pulse' : ''}`}>
                  {gameState.timer}s
                </div>
             </div>
             
             <div className="p-6 space-y-8 max-w-2xl mx-auto w-full">
               <div className="text-center">
-                <span className="bg-indigo-600 text-white px-6 py-1.5 rounded-full text-xs font-black uppercase mb-3 inline-block">CÂU HỎI {gameState.currentQuestionIndex + 1}</span>
+                <span className="bg-indigo-600 text-white px-6 py-1.5 rounded-full text-xs font-black uppercase mb-3 inline-block shadow-lg">CÂU HỎI {gameState.currentQuestionIndex + 1}</span>
                 <h2 className="text-3xl font-extrabold text-slate-800 leading-tight">{currentQ.content}</h2>
               </div>
               
               {!submitted ? (
                 <div className="space-y-4">
-                  {currentQ.type === QuestionType.MCQ && (
-                    <div className="grid grid-cols-1 gap-4">
-                      {currentQ.options?.map((opt, i) => (
-                        <button 
-                          key={i} 
-                          onClick={() => setLocalAnswer(opt)}
-                          className={`p-6 text-left border-4 rounded-[28px] font-bold transition-all flex items-center gap-6 ${localAnswer === opt ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xl scale-[1.02]' : 'border-white bg-white hover:border-slate-200 shadow-sm'}`}
-                        >
-                          <span className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl ${localAnswer === opt ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{String.fromCharCode(65+i)}</span>
-                          <span className="text-xl">{opt}</span>
-                        </button>
-                      ))}
+                  {isTimeUp ? (
+                    <div className="bg-rose-50 p-10 rounded-[32px] text-center border-2 border-rose-100 shadow-inner">
+                      <p className="text-rose-500 font-black text-xl uppercase tracking-widest">Đã hết thời gian!</p>
+                      <p className="text-rose-300 text-sm mt-2">Bạn không thể trả lời câu hỏi này nữa.</p>
                     </div>
-                  )}
-                  
-                  {currentQ.type === QuestionType.SHORT_ANSWER && (
-                    <div className="bg-white p-2 rounded-[32px] shadow-lg border-4 border-white focus-within:border-indigo-100 transition-all">
-                      <input 
-                        value={localAnswer} 
-                        onChange={e => setLocalAnswer(e.target.value)} 
-                        className="w-full p-8 bg-transparent font-black text-2xl text-center outline-none"
-                        placeholder="Gõ đáp án..."
-                        autoFocus
-                      />
-                    </div>
-                  )}
+                  ) : (
+                    <>
+                      {currentQ.type === QuestionType.MCQ && (
+                        <div className="grid grid-cols-1 gap-4">
+                          {currentQ.options?.map((opt, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => setLocalAnswer(opt)}
+                              className={`p-6 text-left border-4 rounded-[28px] font-bold transition-all flex items-center gap-6 ${localAnswer === opt ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xl scale-[1.02]' : 'border-white bg-white hover:border-slate-200 shadow-sm'}`}
+                            >
+                              <span className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl ${localAnswer === opt ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{String.fromCharCode(65+i)}</span>
+                              <span className="text-xl">{opt}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {currentQ.type === QuestionType.SHORT_ANSWER && (
+                        <div className="bg-white p-2 rounded-[32px] shadow-lg border-4 border-white focus-within:border-indigo-100 transition-all">
+                          <input 
+                            value={localAnswer} 
+                            onChange={e => setLocalAnswer(e.target.value)} 
+                            className="w-full p-8 bg-transparent font-black text-2xl text-center outline-none"
+                            placeholder="Gõ đáp án..."
+                            autoFocus
+                          />
+                        </div>
+                      )}
 
-                  <button 
-                    onClick={handleConfirmAnswer}
-                    disabled={!localAnswer || loading}
-                    className={`w-full text-white py-6 rounded-[32px] font-black text-2xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 ${loading ? 'bg-slate-400' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'}`}
-                  >
-                    {loading ? 'ĐANG GỬI...' : 'XÁC NHẬN ĐÁP ÁN'}
-                  </button>
+                      <button 
+                        onClick={handleConfirmAnswer}
+                        disabled={!localAnswer || loading}
+                        className={`w-full text-white py-6 rounded-[32px] font-black text-2xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 ${loading ? 'bg-slate-400' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'}`}
+                      >
+                        {loading ? 'ĐANG GỬI...' : 'XÁC NHẬN ĐÁP ÁN'}
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
-                <div className="bg-white p-12 rounded-[48px] text-center border-4 border-emerald-50 shadow-2xl animate-in zoom-in duration-300">
-                  <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-8">✓</div>
+                <div className="bg-white p-12 rounded-[48px] text-center border-4 border-emerald-50 shadow-2xl animate-in zoom-in duration-300 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-12 -mt-12 opacity-50"></div>
+                  <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">✓</div>
                   <p className="text-slate-400 font-black uppercase text-xs mb-3 tracking-widest">Hệ thống đã nhận đáp án</p>
                   <p className="text-4xl font-black text-indigo-600 italic leading-tight">"{localAnswer}"</p>
                 </div>
@@ -266,21 +278,27 @@ const PlayerView: React.FC = () => {
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-8 animate-in fade-in duration-700">
              <div className="text-9xl animate-bounce drop-shadow-2xl">⏳</div>
              <div className="space-y-2">
-               <h2 className="text-4xl font-black text-slate-900 uppercase tracking-widest">Vui lòng chờ!</h2>
-               <p className="text-slate-400 font-medium text-lg italic px-8">Trận đấu đang diễn ra hoặc quản lý đang chuyển câu hỏi.</p>
+               <h2 className="text-4xl font-black text-slate-900 uppercase tracking-widest">Hãy chờ đợi!</h2>
+               <p className="text-slate-400 font-medium text-lg italic px-8">Trận đấu đang diễn ra hoặc Quản lý đang chuyển tiếp câu hỏi.</p>
+             </div>
+             <div className="flex gap-2">
+                <div className="w-3 h-3 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-3 h-3 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-3 h-3 bg-indigo-200 rounded-full animate-bounce"></div>
              </div>
           </div>
         )}
       </main>
 
+      {/* Buzzer Button Fixed at Bottom */}
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-2xl border-t border-slate-200 flex items-center justify-between gap-6 z-40 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
         <button 
           onClick={handleBuzzer}
-          disabled={!!buzzerRank || (!!gameState.buzzerP1Id && !!gameState.buzzerP2Id) || gameState.status !== GameStatus.QUESTION_ACTIVE}
+          disabled={!!buzzerRank || (!!gameState.buzzerP1Id && !!gameState.buzzerP2Id) || gameState.status !== GameStatus.QUESTION_ACTIVE || isTimeUp}
           className={`flex-1 py-7 rounded-[35px] font-black text-3xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-4 ${
             buzzerRank 
             ? 'bg-slate-200 text-slate-400 shadow-none border-4 border-white' 
-            : (!!gameState.buzzerP1Id && !!gameState.buzzerP2Id)
+            : (!!gameState.buzzerP1Id && !!gameState.buzzerP2Id || isTimeUp)
               ? 'bg-slate-300 text-slate-500 opacity-50 cursor-not-allowed border-4 border-white'
               : 'bg-rose-600 text-white active:bg-rose-700 shadow-rose-300 border-4 border-rose-400 animate-pulse'
           }`}
@@ -289,7 +307,7 @@ const PlayerView: React.FC = () => {
         </button>
 
         {buzzerRank && (
-          <div className={`w-28 h-24 rounded-[35px] flex flex-col items-center justify-center text-white shadow-2xl border-4 border-white animate-in zoom-in duration-300 ${buzzerRank === 1 ? 'bg-gradient-to-br from-emerald-400 to-emerald-500' : 'bg-gradient-to-br from-amber-400 to-amber-500'}`}>
+          <div className={`w-28 h-24 rounded-[35px] flex flex-col items-center justify-center text-white shadow-2xl border-4 border-white animate-in zoom-in duration-300 ${buzzerRank === 1 ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 shadow-emerald-200' : 'bg-gradient-to-br from-amber-400 to-amber-500 shadow-amber-200'}`}>
             <span className="text-[10px] font-black uppercase leading-none mb-1 text-white/80">Hạng</span>
             <span className="text-5xl font-black font-mono">#{buzzerRank}</span>
           </div>

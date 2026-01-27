@@ -37,12 +37,12 @@ const GameMaster: React.FC = () => {
       timerRef.current = setInterval(async () => {
         setTimeLeft(prev => {
           const next = prev - 1;
-          // Sync timer to DB every 2 seconds to reduce load but keep spectator updated
-          if (next % 2 === 0) {
-             supabase.from('matches').update({ timer: next }).eq('id', matchId);
-          }
+          // Đồng bộ timer lên Database mỗi giây để Người chơi & Người xem nhìn thấy khớp nhau
+          supabase.from('matches').update({ timer: next }).eq('id', matchId);
+          
           if (next <= 0) { 
             handleTimeUp(); 
+            clearInterval(timerRef.current);
             return 0;
           }
           return next;
@@ -50,11 +50,12 @@ const GameMaster: React.FC = () => {
       }, 1000);
       return () => clearInterval(timerRef.current);
     }
-  }, [gameState?.status, timeLeft, matchId]);
+  }, [gameState?.status, timeLeft > 0, matchId]);
 
-  const handleTimeUp = () => {
+  const handleTimeUp = async () => {
     if (!gameState) return;
-    broadcastState({ ...gameState, status: GameStatus.SHOWING_RESULTS, timer: 0 });
+    await supabase.from('matches').update({ status: GameStatus.SHOWING_RESULTS, timer: 0 }).eq('id', matchId);
+    refresh();
   };
 
   const jumpToQuestion = async (index: number) => {
@@ -84,7 +85,6 @@ const GameMaster: React.FC = () => {
     if (window.confirm("BẠN CÓ CHẮC MUỐN XÓA TẤT CẢ CÂU TRẢ LỜI CỦA CÂU NÀY?")) {
       await supabase.from('responses').delete().eq('question_id', currentQ.id);
       fetchResponses(currentQ.id);
-      alert("Đã xóa toàn bộ phản hồi.");
     }
   };
 
@@ -105,22 +105,22 @@ const GameMaster: React.FC = () => {
   const getBuzzerName = (id: string | null) => {
     if (!id) return "---";
     const p = gameState?.players.find(player => player.id === id);
-    return p ? p.name : "Thí sinh vắng";
+    return p ? p.name : "Vắng mặt";
   };
 
-  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black">KHỞI TẠO TRẬN ĐẤU...</div>;
+  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black text-xl animate-pulse">ĐANG KHỞI TẠO ĐIỀU KHIỂN...</div>;
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex overflow-hidden font-inter">
       {/* Question Selector Sidebar */}
-      <div className="w-20 bg-slate-900 border-r border-white/5 flex flex-col items-center py-6 gap-3 overflow-y-auto shrink-0">
-        <span className="text-[10px] font-black text-slate-500 uppercase mb-2">Câu</span>
+      <div className="w-20 bg-slate-900 border-r border-white/5 flex flex-col items-center py-6 gap-3 overflow-y-auto shrink-0 scrollbar-hide">
+        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Đề thi</span>
         {gameState.questions.map((_, idx) => (
           <button
             key={idx}
             onClick={() => jumpToQuestion(idx)}
-            className={`w-12 h-12 rounded-xl font-black transition-all shrink-0 ${gameState.currentQuestionIndex === idx ? 'bg-indigo-600 text-white scale-110 shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+            className={`w-12 h-12 rounded-xl font-black transition-all shrink-0 ${gameState.currentQuestionIndex === idx ? 'bg-indigo-600 text-white scale-110 shadow-lg shadow-indigo-500/30' : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'}`}
           >
             {idx + 1}
           </button>
@@ -130,14 +130,14 @@ const GameMaster: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex justify-between items-center p-6 bg-slate-900/80 border-b border-white/5 backdrop-blur-md sticky top-0 z-20">
           <div className="flex items-center gap-6">
-            <div className="bg-indigo-600 px-5 py-2 rounded-xl font-black text-2xl font-mono shadow-lg shadow-indigo-500/20">{gameState.matchCode}</div>
+            <div className="bg-indigo-600 px-6 py-2 rounded-xl font-black text-2xl font-mono shadow-xl shadow-indigo-500/20">{gameState.matchCode}</div>
             <div className="flex gap-2">
-              <button onClick={resetBuzzer} className="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-xl text-[10px] font-black transition shadow-lg">RESET CHUÔNG</button>
-              <button onClick={resetCurrentResponses} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-[10px] font-black transition">RESET ĐÁP ÁN</button>
+              <button onClick={resetBuzzer} className="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-xl text-[10px] font-black transition shadow-lg active:scale-95">RESET CHUÔNG</button>
+              <button onClick={resetCurrentResponses} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-[10px] font-black transition active:scale-95">XÓA ĐÁP ÁN CÂU NÀY</button>
             </div>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => navigate(`/manage/${code}`)} className="bg-slate-800 hover:bg-slate-700 px-6 py-3 rounded-xl font-bold text-sm transition border border-white/5">CHỈNH SỬA ĐỀ</button>
+            <button onClick={() => navigate(`/manage/${code}`)} className="bg-slate-800 hover:bg-slate-700 px-6 py-3 rounded-xl font-bold text-sm transition border border-white/5">SỬA ĐỀ</button>
             <button 
               onClick={() => jumpToQuestion(gameState.currentQuestionIndex + 1)}
               className="bg-emerald-600 hover:bg-emerald-500 px-8 py-3 rounded-xl font-black shadow-lg shadow-emerald-500/20 transition active:scale-95"
@@ -162,33 +162,34 @@ const GameMaster: React.FC = () => {
                       </div>
                       
                       <div className="mb-4">
-                        <span className="bg-white/10 text-indigo-300 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">CÂU HỎI SỐ {gameState.currentQuestionIndex + 1}</span>
+                        <span className="bg-white/10 text-indigo-300 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">CÂU HỎI SỐ {gameState.currentQuestionIndex + 1} ({currentQ.type})</span>
                       </div>
                       <h2 className="text-4xl font-extrabold leading-tight mb-10 pr-24">{currentQ.content}</h2>
                       
                       <div className="flex gap-4 mb-10">
-                         <div className={`p-5 rounded-[32px] border flex-1 text-center transition-all ${gameState?.buzzerP1Id ? 'bg-emerald-500/20 border-emerald-500/40 scale-105' : 'bg-white/5 border-white/5 opacity-50'}`}>
-                            <p className="text-[10px] font-black uppercase mb-1 text-emerald-400">Chuông hạng #1</p>
+                         <div className={`p-6 rounded-[32px] border flex-1 text-center transition-all duration-500 ${gameState?.buzzerP1Id ? 'bg-emerald-500/20 border-emerald-500/40 scale-105 shadow-2xl shadow-emerald-500/20' : 'bg-white/5 border-white/5 opacity-50'}`}>
+                            <p className="text-[10px] font-black uppercase mb-1 text-emerald-400 tracking-tighter">🔔 CHUÔNG #1</p>
                             <p className="text-2xl font-black truncate">{getBuzzerName(gameState?.buzzerP1Id)}</p>
                          </div>
-                         <div className={`p-5 rounded-[32px] border flex-1 text-center transition-all ${gameState?.buzzerP2Id ? 'bg-amber-500/20 border-amber-500/40 scale-105' : 'bg-white/5 border-white/5 opacity-50'}`}>
-                            <p className="text-[10px] font-black uppercase mb-1 text-amber-400">Chuông hạng #2</p>
+                         <div className={`p-6 rounded-[32px] border flex-1 text-center transition-all duration-500 ${gameState?.buzzerP2Id ? 'bg-amber-500/20 border-amber-500/40 scale-105 shadow-2xl shadow-amber-500/20' : 'bg-white/5 border-white/5 opacity-50'}`}>
+                            <p className="text-[10px] font-black uppercase mb-1 text-amber-400 tracking-tighter">🔔 CHUÔNG #2</p>
                             <p className="text-2xl font-black truncate">{getBuzzerName(gameState?.buzzerP2Id)}</p>
                          </div>
                       </div>
 
-                      <div className="p-8 bg-emerald-500/10 border border-emerald-500/20 rounded-[32px]">
-                         <p className="text-emerald-400 font-black text-xs mb-1 uppercase tracking-widest opacity-60">Đáp án chính xác</p>
-                         <p className="text-3xl font-black text-white">{currentQ.correctAnswer || "Chưa thiết lập"}</p>
+                      <div className="p-8 bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] relative overflow-hidden">
+                         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16"></div>
+                         <p className="text-emerald-400 font-black text-xs mb-1 uppercase tracking-widest opacity-60 relative z-10">Đáp án chính xác</p>
+                         <p className="text-3xl font-black text-white relative z-10">{currentQ.correctAnswer || "Chưa thiết lập"}</p>
                       </div>
                     </div>
                  </div>
                ) : (
                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-6">
-                    <div className="text-9xl opacity-20">🎮</div>
+                    <div className="text-9xl opacity-10 animate-pulse">🎮</div>
                     <div className="text-center">
-                      <p className="font-black text-3xl uppercase tracking-widest mb-2">Sẵn sàng điều khiển</p>
-                      <p className="text-slate-400 font-medium">Vui lòng chọn câu hỏi đầu tiên ở cột trái.</p>
+                      <p className="font-black text-3xl uppercase tracking-widest mb-2 text-white/20">Sẵn sàng điều khiển</p>
+                      <p className="text-slate-600 font-medium">Chọn câu hỏi đầu tiên ở cột trái để bắt đầu trận đấu.</p>
                     </div>
                  </div>
                )}
@@ -196,7 +197,7 @@ const GameMaster: React.FC = () => {
           </div>
 
           <div className="flex flex-col min-h-0">
-            <h3 className="font-black text-sm uppercase tracking-widest text-slate-500 mb-4 border-b border-white/5 pb-2">Xếp hạng & Đáp án ({gameState.players.length})</h3>
+            <h3 className="font-black text-sm uppercase tracking-widest text-slate-500 mb-4 border-b border-white/5 pb-2">Bảng xếp hạng ({gameState.players.length})</h3>
             <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
               {gameState.players.sort((a,b) => b.score - a.score).map((p, idx) => {
                 const resp = responses.find(r => r.player_id === p.id);
@@ -204,18 +205,18 @@ const GameMaster: React.FC = () => {
                   <div key={p.id} className="bg-white/5 p-5 rounded-[32px] border border-white/5 hover:bg-white/10 transition-all group">
                     <div className="flex justify-between items-center mb-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${idx === 0 ? 'bg-yellow-400 text-indigo-950' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</div>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-yellow-400 text-indigo-950' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</div>
                         <span className="font-black text-sm truncate max-w-[100px]">{p.name}</span>
                       </div>
                       <input 
                         type="number" 
                         value={p.score}
                         onChange={(e) => updatePlayerScore(p.id, parseInt(e.target.value) || 0)}
-                        className="w-16 bg-transparent text-emerald-400 font-black text-right outline-none text-xl focus:bg-white/5 rounded-lg p-1"
+                        className="w-16 bg-transparent text-emerald-400 font-black text-right outline-none text-xl focus:bg-white/5 rounded-lg p-1 transition"
                       />
                     </div>
                     {resp ? (
-                      <div className={`p-3 rounded-2xl border-2 ${resp.is_correct ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                      <div className={`p-3 rounded-2xl border-2 animate-in zoom-in duration-300 ${resp.is_correct ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
                         <div className="flex justify-between items-center mb-1">
                           <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${resp.is_correct ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
                             {resp.is_correct ? 'ĐÚNG' : 'SAI'}
@@ -225,8 +226,8 @@ const GameMaster: React.FC = () => {
                         <p className="text-sm font-bold text-white italic truncate">"{resp.answer}"</p>
                       </div>
                     ) : (
-                      <div className="p-3 rounded-2xl bg-white/5 border border-white/5 border-dashed text-center">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase animate-pulse italic">Chưa trả lời</p>
+                      <div className="p-3 rounded-2xl bg-white/5 border border-white/5 border-dashed text-center opacity-40">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase italic">Chưa phản hồi</p>
                       </div>
                     )}
                   </div>

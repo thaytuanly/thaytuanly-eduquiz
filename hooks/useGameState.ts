@@ -46,7 +46,10 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         status: match.status as GameStatus,
         currentQuestionIndex: match.current_question_index,
         questions: mapQuestions(match.questions),
-        players: players || [],
+        players: (players || []).map(p => ({
+          ...p,
+          isReady: true // Default true for this schema
+        })),
         timer: match.timer || 0,
         maxTime: 0,
         activeBuzzerPlayerId: match.active_buzzer_player_id,
@@ -65,22 +68,27 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   useEffect(() => {
     if (!initialCode || !matchId) return;
 
-    // Lắng nghe tất cả các thay đổi của trận đấu
+    // Lắng nghe realtime mọi thay đổi của match và players
     const channel = supabase
-      .channel(`game_realtime_${matchId}`)
+      .channel(`game_sync_${matchId}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
       }, (payload) => {
-        // Cập nhật state ngay lập tức cho các trường nhanh (timer, status)
+        // Cập nhật State ngay lập tức khi DB thay đổi
         setGameState(prev => {
           if (!prev) return null;
-          // Nếu chuyển câu hỏi, ta nên fetch lại toàn bộ để đồng bộ danh sách câu hỏi nếu có thay đổi
-          if (payload.new.current_question_index !== prev.currentQuestionIndex) {
-             setTimeout(fetchState, 100); 
+          
+          const isNewQuestion = payload.new.current_question_index !== prev.currentQuestionIndex;
+          const isNewStatus = payload.new.status !== prev.status;
+
+          // Nếu đổi câu hỏi hoặc trạng thái quan trọng, fetch lại để đảm bảo dữ liệu questions/players mới nhất
+          if (isNewQuestion || isNewStatus) {
+            fetchState();
           }
+
           return {
             ...prev,
             status: payload.new.status,
@@ -97,15 +105,6 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         schema: 'public', 
         table: 'players', 
         filter: `match_id=eq.${matchId}` 
-      }, () => {
-        // Tải lại danh sách người chơi khi có thay đổi (điểm số, người mới vào)
-        fetchState();
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'questions',
-        filter: `match_id=eq.${matchId}`
       }, () => {
         fetchState();
       })
