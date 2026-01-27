@@ -75,27 +75,8 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         table: 'matches', 
         filter: `id=eq.${matchId}` 
       }, (payload) => {
-        setQuestionStartedAt(payload.new.question_started_at);
-        setGameState(prev => {
-          if (!prev) return null;
-          
-          const isNewQuestion = payload.new.current_question_index !== prev.currentQuestionIndex;
-          const isNewStatus = payload.new.status !== prev.status;
-
-          if (isNewQuestion || isNewStatus) {
-            fetchState(); // Re-fetch to get new questions list if changed
-          }
-
-          return {
-            ...prev,
-            status: payload.new.status,
-            currentQuestionIndex: payload.new.current_question_index,
-            timer: payload.new.timer,
-            activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
-            buzzerP1Id: payload.new.buzzer_p1_id,
-            buzzerP2Id: payload.new.buzzer_p2_id
-          };
-        });
+        // Luôn fetch lại state khi có thay đổi quan trọng để đảm bảo đồng bộ 100%
+        fetchState();
       })
       .on('postgres_changes', { 
         event: '*', 
@@ -104,6 +85,15 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         filter: `match_id=eq.${matchId}` 
       }, () => {
         fetchState();
+      })
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'responses', 
+        filter: `match_id=eq.${matchId}` 
+      }, () => {
+        // Thông báo cho các view cần load lại responses
+        window.dispatchEvent(new CustomEvent('sync_responses'));
       })
       .subscribe();
 
@@ -123,7 +113,6 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         buzzer_p1_id: newState.buzzerP1Id,
         buzzer_p2_id: newState.buzzerP2Id
       }).eq('id', matchId);
-      // fetchState() is called by the subscription
     } catch (e) {
       console.error("Failed to broadcast state:", e);
     }

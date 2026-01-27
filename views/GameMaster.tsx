@@ -14,42 +14,26 @@ const GameMaster: React.FC = () => {
   const [responses, setResponses] = useState<any[]>([]);
   const timerIntervalRef = useRef<any>(null);
 
-  // Lắng nghe phản hồi thời gian thực từ database
+  // Lắng nghe phản hồi thời gian thực
   useEffect(() => {
-    if (!matchId || gameState?.currentQuestionIndex === undefined || gameState.currentQuestionIndex < 0) return;
-    const currentQ = gameState.questions[gameState.currentQuestionIndex];
-    if (currentQ) {
-      // Tải dữ liệu ban đầu
-      fetchResponses(currentQ.id);
-
-      // Đăng ký lắng nghe thay đổi
-      const channel = supabase
-        .channel(`responses_sync_${currentQ.id}`)
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'responses', 
-          filter: `question_id=eq.${currentQ.id}` 
-        }, (payload) => {
-          console.log("New response detected:", payload);
-          fetchResponses(currentQ.id);
-        })
-        .subscribe((status) => {
-          console.log("Realtime status:", status);
-        });
-
-      return () => { supabase.removeChannel(channel); };
-    }
-  }, [matchId, gameState?.currentQuestionIndex]);
+    const handleSync = () => {
+      if (gameState?.questions && gameState.currentQuestionIndex >= 0) {
+        fetchResponses(gameState.questions[gameState.currentQuestionIndex].id);
+      }
+    };
+    window.addEventListener('sync_responses', handleSync);
+    handleSync();
+    return () => window.removeEventListener('sync_responses', handleSync);
+  }, [gameState?.questions, gameState?.currentQuestionIndex]);
 
   const fetchResponses = async (qId: string) => {
     const { data } = await supabase.from('responses').select('*').eq('question_id', qId);
     setResponses(data || []);
   };
 
-  // Logic đếm ngược cục bộ dựa trên questionStartedAt
+  // Logic đếm ngược cục bộ
   useEffect(() => {
-    if (gameState?.status === GameStatus.QUESTION_ACTIVE && questionStartedAt) {
+    if (gameState?.status === GameStatus.QUESTION_ACTIVE && questionStartedAt && gameState.currentQuestionIndex >= 0) {
       const start = new Date(questionStartedAt).getTime();
       const currentQ = gameState.questions[gameState.currentQuestionIndex];
       const limit = (currentQ?.timeLimit || 30) * 1000;
@@ -74,19 +58,31 @@ const GameMaster: React.FC = () => {
       setTimeLeft(0);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
-  }, [gameState?.status, questionStartedAt, gameState?.currentQuestionIndex]);
+  }, [gameState?.status, questionStartedAt, gameState?.currentQuestionIndex, gameState?.questions]);
 
   const handleTimeUp = async () => {
     if (gameState?.status !== GameStatus.QUESTION_ACTIVE) return;
-    // Chuyển trạng thái sang SHOWING_RESULTS khi hết giờ
     await supabase.from('matches').update({ status: GameStatus.SHOWING_RESULTS }).eq('id', matchId);
   };
 
   const jumpToQuestion = async (index: number) => {
-    if (!gameState || !matchId || index < 0 || index >= gameState.questions.length) return;
+    if (!matchId) return;
+    
+    // Nếu chọn -1 (Màn hình chờ/Lobby)
+    if (index === -1) {
+      await supabase.from('matches').update({ 
+        status: GameStatus.LOBBY,
+        current_question_index: -1,
+        question_started_at: null,
+        buzzer_p1_id: null,
+        buzzer_p2_id: null
+      }).eq('id', matchId);
+      return;
+    }
+
+    if (!gameState || index < 0 || index >= gameState.questions.length) return;
     const nextQ = gameState.questions[index];
     
-    // Cập nhật Database: Reset chuông và ghi nhận thời điểm bắt đầu
     await supabase.from('matches').update({ 
       buzzer_p1_id: null, 
       buzzer_t1: null, 
@@ -129,8 +125,21 @@ const GameMaster: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex overflow-hidden font-inter">
+      {/* Question Selector Sidebar */}
       <div className="w-20 bg-slate-900 border-r border-white/5 flex flex-col items-center py-6 gap-3 overflow-y-auto shrink-0 scrollbar-hide">
-        <span className="text-[10px] font-black text-slate-500 uppercase mb-2">Câu hỏi</span>
+        <span className="text-[10px] font-black text-slate-500 uppercase mb-2">ĐỀ THI</span>
+        
+        {/* Nút Lobby/Bắt đầu */}
+        <button
+          onClick={() => jumpToQuestion(-1)}
+          className={`w-12 h-12 rounded-xl font-black transition-all shrink-0 flex items-center justify-center ${gameState.currentQuestionIndex === -1 ? 'bg-indigo-600 text-white scale-110 shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+          title="Màn hình chờ"
+        >
+          🏠
+        </button>
+
+        <div className="w-10 h-px bg-white/10 my-1"></div>
+
         {gameState.questions.map((_, idx) => (
           <button
             key={idx}
@@ -201,7 +210,8 @@ const GameMaster: React.FC = () => {
                ) : (
                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
                     <div className="text-9xl mb-8 opacity-10 animate-pulse">🎮</div>
-                    <p className="font-black text-3xl uppercase text-white/20">Hãy chọn câu hỏi để bắt đầu</p>
+                    <p className="font-black text-3xl uppercase text-white/20">Màn hình chờ - Hãy chọn câu hỏi</p>
+                    <p className="text-slate-600 mt-4">Số lượng thí sinh: {gameState.players.length}</p>
                  </div>
                )}
             </div>

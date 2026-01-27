@@ -3,7 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { QuestionType } from "../types";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // process.env.API_KEY được tiêm tự động bởi hệ thống
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   
   try {
     const response = await ai.models.generateContent({
