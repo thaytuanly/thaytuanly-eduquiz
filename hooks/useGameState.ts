@@ -7,6 +7,20 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
 
+  const mapQuestions = (rawQuestions: any[]): Question[] => {
+    return (rawQuestions || []).map((q: any) => ({
+      id: q.id,
+      type: q.type,
+      content: q.content,
+      options: q.options,
+      correctAnswer: q.correct_answer || q.correctAnswer || '', // Chấp nhận cả 2 định dạng
+      points: q.points || 0,
+      timeLimit: q.time_limit || q.timeLimit || 30,
+      mediaUrl: q.media_url || q.mediaUrl,
+      mediaType: q.media_type || q.mediaType || 'none'
+    })).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+  };
+
   const fetchState = useCallback(async () => {
     if (!initialCode) return;
 
@@ -27,24 +41,11 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
 
       setMatchId(match.id);
       
-      // Mapping questions from snake_case to camelCase
-      const mappedQuestions: Question[] = (match.questions || []).map((q: any) => ({
-        id: q.id,
-        type: q.type,
-        content: q.content,
-        options: q.options,
-        correctAnswer: q.correct_answer || '', // Chuyển từ correct_answer -> correctAnswer
-        points: q.points || 0,
-        timeLimit: q.time_limit || 30, // Chuyển từ time_limit -> timeLimit
-        mediaUrl: q.media_url,
-        mediaType: q.media_type || 'none'
-      })).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
-
       setGameState({
         matchCode: match.code,
         status: match.status as GameStatus,
         currentQuestionIndex: match.current_question_index,
-        questions: mappedQuestions,
+        questions: mapQuestions(match.questions),
         players: players || [],
         timer: match.timer || 0,
         maxTime: 0,
@@ -65,22 +66,31 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     if (!initialCode || !matchId) return;
 
     const matchChannel = supabase
-      .channel(`match:${initialCode}`)
+      .channel(`match_sync:${initialCode}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
-      }, (payload) => {
-        setGameState(prev => prev ? {
-          ...prev,
-          status: payload.new.status,
-          current_question_index: payload.new.current_question_index,
-          timer: payload.new.timer,
-          activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
-          buzzerP1Id: payload.new.buzzer_p1_id,
-          buzzerP2Id: payload.new.buzzer_p2_id
-        } : null);
+      }, async (payload) => {
+        // Nếu có sự thay đổi về index câu hỏi hoặc trạng thái, nên re-fetch nhẹ để đảm bảo đồng bộ
+        setGameState(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            status: payload.new.status,
+            currentQuestionIndex: payload.new.current_question_index,
+            timer: payload.new.timer,
+            activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
+            buzzerP1Id: payload.new.buzzer_p1_id,
+            buzzerP2Id: payload.new.buzzer_p2_id
+          };
+        });
+
+        // Nếu chuyển sang câu hỏi mới mà mảng câu hỏi đang trống, tải lại toàn bộ
+        if (payload.new.current_question_index >= 0 && (!gameState?.questions || gameState.questions.length === 0)) {
+          fetchState();
+        }
       })
       .on('postgres_changes', { 
         event: '*', 
@@ -91,12 +101,20 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         const { data } = await supabase.from('players').select('*').eq('match_id', matchId).order('created_at', { ascending: true });
         setGameState(prev => prev ? { ...prev, players: data || [] } : null);
       })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'questions',
+        filter: `match_id=eq.${matchId}`
+      }, () => {
+        fetchState(); // Tải lại câu hỏi nếu có bất kỳ thay đổi nào từ phía Manager
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(matchChannel);
     };
-  }, [initialCode, matchId]);
+  }, [initialCode, matchId, gameState?.questions?.length]);
 
   const broadcastState = useCallback(async (newState: GameState) => {
     if (!matchId) return;
