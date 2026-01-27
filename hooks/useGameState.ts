@@ -66,19 +66,20 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     if (!initialCode || !matchId) return;
 
     const matchChannel = supabase
-      .channel(`match_sync:${initialCode}`)
+      .channel(`match_sync_${matchId}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
-      }, async (payload) => {
+      }, (payload) => {
         setGameState(prev => {
           if (!prev) return null;
+          // CỰC KỲ QUAN TRỌNG: Mapping snake_case sang camelCase khi nhận payload realtime
           return {
             ...prev,
             status: payload.new.status,
-            currentQuestionIndex: payload.new.current_question_index, // Cập nhật đồng bộ index
+            currentQuestionIndex: payload.new.current_question_index, 
             timer: payload.new.timer,
             activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
             buzzerP1Id: payload.new.buzzer_p1_id,
@@ -101,7 +102,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         table: 'questions',
         filter: `match_id=eq.${matchId}`
       }, () => {
-        fetchState();
+        fetchState(); // Tải lại câu hỏi khi Manager cập nhật đề
       })
       .subscribe();
 
