@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.ts';
 import { GameState, GameStatus } from '../types.ts';
 
@@ -67,7 +67,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         setGameState(prev => prev ? {
           ...prev,
           status: payload.new.status,
-          current_question_index: payload.new.current_question_index,
+          currentQuestionIndex: payload.new.current_question_index,
           timer: payload.new.timer,
           activeBuzzerPlayerId: payload.new.active_buzzer_player_id
         } : null);
