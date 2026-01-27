@@ -1,7 +1,7 @@
 
 -- HƯỚNG DẪN: Chạy đoạn code này trong SQL Editor của Supabase
 
--- 1. Bảng lưu thông tin trận đấu
+-- 1. Bảng lưu thông tin trận đấu (Bổ sung cột theo dõi chuông)
 CREATE TABLE IF NOT EXISTS matches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT UNIQUE NOT NULL,
@@ -9,7 +9,11 @@ CREATE TABLE IF NOT EXISTS matches (
   status TEXT DEFAULT 'LOBBY',
   current_question_index INT DEFAULT -1,
   timer INT DEFAULT 0,
-  active_buzzer_player_id UUID,
+  -- Theo dõi 2 người bấm chuông nhanh nhất
+  buzzer_p1_id UUID REFERENCES players(id) ON DELETE SET NULL,
+  buzzer_t1 BIGINT,
+  buzzer_p2_id UUID REFERENCES players(id) ON DELETE SET NULL,
+  buzzer_t2 BIGINT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -24,7 +28,7 @@ CREATE TABLE IF NOT EXISTS questions (
   points INT DEFAULT 10,
   time_limit INT DEFAULT 30,
   media_url TEXT,
-  media_type TEXT DEFAULT 'none',
+  media_type TEXT DEFAULT 'none', -- 'image', 'video', 'none'
   sort_order INT DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -35,7 +39,6 @@ CREATE TABLE IF NOT EXISTS players (
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   score INT DEFAULT 0,
-  buzzer_time BIGINT, -- Lưu timestamp ms lúc bấm chuông
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -53,7 +56,7 @@ CREATE TABLE IF NOT EXISTS responses (
   UNIQUE(player_id, question_id)
 );
 
--- 5. Mở quyền truy cập
+-- Mở quyền truy cập
 ALTER TABLE matches DISABLE ROW LEVEL SECURITY;
 ALTER TABLE questions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE players DISABLE ROW LEVEL SECURITY;

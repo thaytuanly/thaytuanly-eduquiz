@@ -36,44 +36,6 @@ const ManagerDashboard: React.FC = () => {
     }
   };
 
-  const exportResults = async () => {
-    if (!matchId) return;
-    setLoading(true);
-    
-    // Lấy toàn bộ kết quả trả lời kèm thông tin thí sinh và câu hỏi
-    const { data, error } = await supabase
-      .from('responses')
-      .select(`
-        answer, is_correct, response_time, points_earned,
-        players (name),
-        questions (content, sort_order)
-      `)
-      .eq('match_id', matchId);
-
-    if (error || !data) {
-      alert("Lỗi khi lấy dữ liệu: " + error?.message);
-      setLoading(false);
-      return;
-    }
-
-    // Tạo nội dung CSV
-    let csvContent = "Thí sinh,Câu hỏi,Đáp án đã chọn,Kết quả,Thời gian (ms),Điểm nhận được\n";
-    data.forEach((r: any) => {
-      csvContent += `"${r.players?.name}","Câu ${r.questions?.sort_order + 1}: ${r.questions?.content.substring(0, 30)}...","${r.answer}","${r.is_correct ? 'ĐÚNG' : 'SAI'}",${r.response_time},${r.points_earned}\n`;
-    });
-
-    // Tải xuống
-    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `ket_qua_tran_${code}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setLoading(false);
-  };
-
   const handleAddQuestion = async (type: QuestionType) => {
     if (!matchId) return;
     const newQ = {
@@ -121,16 +83,9 @@ const ManagerDashboard: React.FC = () => {
         <div>
           <button onClick={() => navigate('/manage-list')} className="text-indigo-600 font-bold text-sm mb-2 flex items-center gap-1">← Quay lại danh sách</button>
           <h1 className="text-3xl font-black text-slate-900">Thiết Lập Câu Hỏi</h1>
-          <p className="text-slate-500 font-medium italic">Trận đấu: <span className="text-indigo-600 font-mono font-bold">{code}</span></p>
+          <p className="text-slate-500 font-medium italic">Mã trận: <span className="text-indigo-600 font-mono font-bold">{code}</span></p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <button 
-            onClick={exportResults} 
-            disabled={loading}
-            className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition"
-          >
-            {loading ? 'ĐANG TẢI...' : '📥 TẢI KẾT QUẢ (CSV)'}
-          </button>
           <div className="flex bg-slate-100 p-1 rounded-xl">
             <button onClick={() => handleAddQuestion(QuestionType.MCQ)} className="px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white rounded-lg transition">+ MCQ</button>
             <button onClick={() => handleAddQuestion(QuestionType.SHORT_ANSWER)} className="px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white rounded-lg transition">+ Tự luận</button>
@@ -145,11 +100,9 @@ const ManagerDashboard: React.FC = () => {
           <div key={q.id} className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
              <div className="flex justify-between items-center mb-6">
                <span className="bg-slate-900 text-white text-[12px] font-black px-3 py-1 rounded-full uppercase">Câu {idx + 1} - {q.type}</span>
-               <div className="flex gap-2">
-                 <button onClick={() => handleSaveQuestion(q.id)} className={`px-4 py-2 rounded-xl text-xs font-black ${savingId === q.id ? 'bg-slate-100' : 'bg-indigo-600 text-white'}`}>
-                   {savingId === q.id ? 'ĐANG LƯU...' : 'LƯU LẠI'}
-                 </button>
-               </div>
+               <button onClick={() => handleSaveQuestion(q.id)} className={`px-6 py-2 rounded-xl text-xs font-black ${savingId === q.id ? 'bg-slate-100' : 'bg-indigo-600 text-white'}`}>
+                 {savingId === q.id ? 'ĐANG LƯU...' : 'LƯU LẠI'}
+               </button>
              </div>
              <div className="grid lg:grid-cols-3 gap-8">
                <div className="lg:col-span-2 space-y-4">
@@ -167,10 +120,28 @@ const ManagerDashboard: React.FC = () => {
                  )}
                </div>
                <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
-                  <input value={q.mediaUrl || ''} onChange={(e) => updateLocalState(q.id, { mediaUrl: e.target.value })} className="w-full p-3 bg-white border rounded-xl text-xs" placeholder="Link Media..." />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase">Loại Media</label>
+                    <select 
+                      value={q.mediaType} 
+                      onChange={(e) => updateLocalState(q.id, { mediaType: e.target.value as any })}
+                      className="w-full p-3 bg-white border rounded-xl text-sm font-bold"
+                    >
+                      <option value="none">Không có</option>
+                      <option value="image">Hình ảnh</option>
+                      <option value="video">Video (YouTube)</option>
+                    </select>
+                  </div>
+                  <input value={q.mediaUrl || ''} onChange={(e) => updateLocalState(q.id, { mediaUrl: e.target.value })} className="w-full p-3 bg-white border rounded-xl text-xs" placeholder="Dán link ảnh hoặc YouTube..." />
                   <div className="grid grid-cols-2 gap-4">
-                    <input type="number" value={q.points} onChange={(e) => updateLocalState(q.id, { points: parseInt(e.target.value) || 0 })} className="p-3 bg-white border rounded-xl text-sm text-center font-bold" />
-                    <input type="number" value={q.timeLimit} onChange={(e) => updateLocalState(q.id, { timeLimit: parseInt(e.target.value) || 30 })} className="p-3 bg-white border rounded-xl text-sm text-center font-bold" />
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase">Điểm</label>
+                      <input type="number" value={q.points} onChange={(e) => updateLocalState(q.id, { points: parseInt(e.target.value) || 0 })} className="w-full p-3 bg-white border rounded-xl text-sm text-center font-bold" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase">Giây</label>
+                      <input type="number" value={q.timeLimit} onChange={(e) => updateLocalState(q.id, { timeLimit: parseInt(e.target.value) || 30 })} className="w-full p-3 bg-white border rounded-xl text-sm text-center font-bold" />
+                    </div>
                   </div>
                   <input value={q.correctAnswer} onChange={(e) => updateLocalState(q.id, { correctAnswer: e.target.value })} className="w-full p-3 bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 rounded-xl text-sm" placeholder="Đáp án đúng..." />
                </div>
