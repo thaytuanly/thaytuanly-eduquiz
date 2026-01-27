@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase.ts';
 import { GameState, GameStatus, Question } from '../types.ts';
 
@@ -7,6 +7,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
+  const isFetching = useRef(false);
 
   const mapQuestions = (rawQuestions: any[]): Question[] => {
     return (rawQuestions || []).map((q: any) => ({
@@ -23,17 +24,19 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   };
 
   const fetchState = useCallback(async () => {
-    if (!initialCode) return;
+    if (!initialCode || isFetching.current) return;
+    isFetching.current = true;
 
     try {
       const { data: match, error: matchError } = await supabase
         .from('matches')
         .select(`*, questions(*)`)
         .eq('code', initialCode)
-        .single();
+        .maybeSingle();
 
       if (matchError || !match) {
-        console.error("Match not found:", initialCode);
+        console.error("Match not found or error:", initialCode, matchError);
+        isFetching.current = false;
         return;
       }
 
@@ -60,6 +63,8 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
       });
     } catch (e) {
       console.error("Supabase request failed:", e);
+    } finally {
+      isFetching.current = false;
     }
   }, [initialCode]);
 
@@ -68,36 +73,32 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   }, [fetchState]);
 
   useEffect(() => {
-    if (!matchId) return;
+    if (!initialCode) return;
 
-    // Kênh Realtime cho Trận đấu và Người chơi
+    // Lắng nghe thay đổi toàn cục cho match này
     const channel = supabase
-      .channel(`game_realtime_${matchId}`)
+      .channel(`sync_all_${initialCode}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'matches', 
-        filter: `id=eq.${matchId}` 
-      }, (payload) => {
-        console.log("Match updated:", payload);
+        filter: `code=eq.${initialCode}` 
+      }, () => {
         fetchState();
       })
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'players', 
-        filter: `match_id=eq.${matchId}` 
-      }, (payload) => {
-        console.log("Players updated:", payload);
+        table: 'players'
+      }, (payload: any) => {
+        // Chỉ fetch lại nếu player thuộc match hiện tại (kiểm tra sơ bộ matchId nếu đã có)
         fetchState();
       })
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
-        table: 'responses', 
-        filter: `match_id=eq.${matchId}` 
+        table: 'responses'
       }, () => {
-        // Thông báo cho UI nạp lại đáp án
         window.dispatchEvent(new CustomEvent('sync_responses'));
       })
       .subscribe();
@@ -105,7 +106,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [matchId, fetchState]);
+  }, [initialCode, fetchState]);
 
   const broadcastState = useCallback(async (newState: GameState) => {
     if (!matchId) return;

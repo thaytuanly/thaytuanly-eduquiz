@@ -59,7 +59,7 @@ const PlayerView: React.FC = () => {
         if (remaining <= 0) {
           clearInterval(timerIntervalRef.current);
         }
-      }, 100);
+      }, 200);
 
       return () => clearInterval(timerIntervalRef.current);
     } else {
@@ -92,8 +92,9 @@ const PlayerView: React.FC = () => {
 
   const joinGame = async () => {
     if (!matchId) {
-      alert("Hệ thống đang kết nối máy chủ, vui lòng đợi trong giây lát...");
+      // Thử refresh state một lần nữa
       refresh();
+      alert("Hệ thống đang kết nối, vui lòng thử lại sau 2 giây...");
       return;
     }
     if (!name.trim()) {
@@ -162,6 +163,7 @@ const PlayerView: React.FC = () => {
 
   const handleBuzzer = async () => {
     if (!gameState || !myPlayerId || !matchId || gameState.status !== GameStatus.QUESTION_ACTIVE || localTimeLeft <= 0) return;
+    
     const { data: latestMatch } = await supabase.from('matches').select('buzzer_p1_id, buzzer_p2_id').eq('id', matchId).single();
     if (latestMatch?.buzzer_p1_id === myPlayerId || latestMatch?.buzzer_p2_id === myPlayerId) return;
 

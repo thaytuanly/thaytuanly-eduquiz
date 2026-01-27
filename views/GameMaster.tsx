@@ -14,7 +14,7 @@ const GameMaster: React.FC = () => {
   const [responses, setResponses] = useState<any[]>([]);
   const timerIntervalRef = useRef<any>(null);
 
-  // Lấy câu trả lời ngay lập tức khi có sự kiện sync_responses
+  // Lắng nghe sự kiện nạp lại đáp án
   useEffect(() => {
     const handleSync = () => {
       if (gameState?.questions && gameState.currentQuestionIndex >= 0) {
@@ -24,6 +24,8 @@ const GameMaster: React.FC = () => {
     window.addEventListener('sync_responses', handleSync);
     if (gameState?.questions && gameState.currentQuestionIndex >= 0) {
       fetchResponses(gameState.questions[gameState.currentQuestionIndex].id);
+    } else {
+      setResponses([]);
     }
     return () => window.removeEventListener('sync_responses', handleSync);
   }, [gameState?.questions, gameState?.currentQuestionIndex]);
@@ -33,7 +35,7 @@ const GameMaster: React.FC = () => {
     setResponses(data || []);
   };
 
-  // Logic đếm ngược cục bộ độc lập
+  // Logic đếm ngược
   useEffect(() => {
     if (gameState?.status === GameStatus.QUESTION_ACTIVE && questionStartedAt && gameState.currentQuestionIndex >= 0) {
       const start = new Date(questionStartedAt).getTime();
@@ -53,52 +55,59 @@ const GameMaster: React.FC = () => {
           handleTimeUp();
           clearInterval(timerIntervalRef.current);
         }
-      }, 100);
+      }, 200);
 
       return () => clearInterval(timerIntervalRef.current);
     } else {
       setTimeLeft(0);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
-  }, [gameState?.status, questionStartedAt, gameState?.currentQuestionIndex]);
+  }, [gameState?.status, questionStartedAt, gameState?.currentQuestionIndex, gameState?.questions]);
 
   const handleTimeUp = async () => {
-    if (gameState?.status !== GameStatus.QUESTION_ACTIVE) return;
+    if (!matchId || gameState?.status !== GameStatus.QUESTION_ACTIVE) return;
     await supabase.from('matches').update({ status: GameStatus.SHOWING_RESULTS }).eq('id', matchId);
   };
 
   const jumpToQuestion = async (index: number) => {
-    if (!matchId) return;
-    
-    // index = -1 là Màn hình chờ
-    if (index === -1) {
-      await supabase.from('matches').update({ 
-        status: GameStatus.LOBBY,
-        current_question_index: -1,
-        question_started_at: null,
-        buzzer_p1_id: null,
-        buzzer_p2_id: null
-      }).eq('id', matchId);
-      setResponses([]);
+    if (!matchId) {
+      console.error("Match ID missing, cannot jump to question");
       return;
     }
+    
+    try {
+      if (index === -1) {
+        // Quay về màn hình chờ
+        await supabase.from('matches').update({ 
+          status: GameStatus.LOBBY,
+          current_question_index: -1,
+          question_started_at: null,
+          buzzer_p1_id: null,
+          buzzer_p2_id: null
+        }).eq('id', matchId);
+        setResponses([]);
+        return;
+      }
 
-    if (!gameState || index < 0 || index >= gameState.questions.length) return;
-    const nextQ = gameState.questions[index];
-    
-    await supabase.from('matches').update({ 
-      buzzer_p1_id: null, 
-      buzzer_t1: null, 
-      buzzer_p2_id: null, 
-      buzzer_t2: null,
-      status: GameStatus.QUESTION_ACTIVE,
-      current_question_index: index,
-      timer: nextQ.timeLimit,
-      question_started_at: new Date().toISOString()
-    }).eq('id', matchId);
-    
-    setResponses([]);
-    (window as any).questionStartTime = Date.now();
+      if (!gameState || index < 0 || index >= gameState.questions.length) return;
+      const nextQ = gameState.questions[index];
+      
+      await supabase.from('matches').update({ 
+        buzzer_p1_id: null, 
+        buzzer_t1: null, 
+        buzzer_p2_id: null, 
+        buzzer_t2: null,
+        status: GameStatus.QUESTION_ACTIVE,
+        current_question_index: index,
+        timer: nextQ.timeLimit,
+        question_started_at: new Date().toISOString()
+      }).eq('id', matchId);
+      
+      setResponses([]);
+      (window as any).questionStartTime = Date.now();
+    } catch (err) {
+      console.error("Jump to question failed:", err);
+    }
   };
 
   const resetCurrentResponses = async () => {
@@ -124,7 +133,7 @@ const GameMaster: React.FC = () => {
     await supabase.from('players').update({ score: newScore }).eq('id', playerId);
   };
 
-  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black text-xl">ĐANG KẾT NỐI HỆ THỐNG...</div>;
+  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black text-xl">ĐANG KHỞI TẠO...</div>;
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
 
   return (
@@ -140,13 +149,13 @@ const GameMaster: React.FC = () => {
         </button>
 
         <div className="w-12 h-px bg-white/10 my-2"></div>
-        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">CÂU HỎI</span>
+        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-center">CÂU HỎI</span>
 
         {gameState.questions.map((_, idx) => (
           <button
             key={idx}
             onClick={() => jumpToQuestion(idx)}
-            className={`w-14 h-14 rounded-2xl font-black transition-all shrink-0 text-lg ${gameState.currentQuestionIndex === idx ? 'bg-indigo-600 text-white scale-110 shadow-xl' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+            className={`w-14 h-14 rounded-2xl font-black transition-all shrink-0 text-lg ${gameState.currentQuestionIndex === idx ? 'bg-indigo-600 text-white scale-110 shadow-xl shadow-indigo-500/50' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
           >
             {idx + 1}
           </button>
@@ -215,22 +224,31 @@ const GameMaster: React.FC = () => {
                     <p className="font-black text-4xl uppercase text-white/20 tracking-tighter">Màn hình chờ</p>
                     <p className="text-slate-500 mt-4 text-xl font-medium">Hiện có <span className="text-indigo-400 font-black">{gameState.players.length}</span> thí sinh đang trong phòng.</p>
                     <p className="text-slate-600 mt-2 italic">Hãy chọn câu hỏi ở thanh bên trái để bắt đầu thi đấu.</p>
+                    
+                    {/* Danh sách người chơi thu gọn trong màn hình chờ */}
+                    <div className="mt-8 flex flex-wrap justify-center gap-3 max-w-2xl">
+                       {gameState.players.map(p => (
+                         <div key={p.id} className="bg-white/5 border border-white/10 px-4 py-2 rounded-full text-sm font-bold text-white/60">
+                            {p.name}
+                         </div>
+                       ))}
+                    </div>
                  </div>
                )}
             </div>
           </div>
 
           <div className="flex flex-col min-h-0">
-            <h3 className="font-black text-sm uppercase text-slate-500 mb-4 border-b border-white/5 pb-2">Đáp án Thí sinh ({responses.length})</h3>
+            <h3 className="font-black text-sm uppercase text-slate-500 mb-4 border-b border-white/5 pb-2">Thí sinh & Phản hồi</h3>
             <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
               {gameState.players.sort((a,b) => b.score - a.score).map((p, idx) => {
                 const resp = responses.find(r => r.player_id === p.id);
                 return (
                   <div key={p.id} className="bg-white/5 p-5 rounded-[32px] border border-white/5 transition-all hover:bg-white/10">
                     <div className="flex justify-between items-center mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-yellow-400 text-indigo-950 shadow-lg' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</div>
-                        <span className="font-black text-sm truncate max-w-[120px]">{p.name}</span>
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${idx === 0 ? 'bg-yellow-400 text-indigo-950 shadow-lg' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</div>
+                        <span className="font-black text-sm truncate">{p.name}</span>
                       </div>
                       <input 
                         type="number" 
@@ -251,7 +269,7 @@ const GameMaster: React.FC = () => {
                       </div>
                     ) : (
                       <div className="p-3 rounded-2xl bg-white/5 border border-white/5 border-dashed text-center opacity-30">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase italic">Chưa trả lời</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase italic">Chờ phản hồi...</p>
                       </div>
                     )}
                   </div>
