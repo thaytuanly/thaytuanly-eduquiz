@@ -3,13 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { QuestionType } from "../types";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
-  // Đảm bảo lấy API key từ process.env
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please set process.env.API_KEY.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
