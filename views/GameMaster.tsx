@@ -14,7 +14,7 @@ const GameMaster: React.FC = () => {
   const [responses, setResponses] = useState<any[]>([]);
   const timerIntervalRef = useRef<any>(null);
 
-  // Lắng nghe phản hồi thời gian thực
+  // Lấy câu trả lời ngay lập tức khi có sự kiện sync_responses
   useEffect(() => {
     const handleSync = () => {
       if (gameState?.questions && gameState.currentQuestionIndex >= 0) {
@@ -22,7 +22,9 @@ const GameMaster: React.FC = () => {
       }
     };
     window.addEventListener('sync_responses', handleSync);
-    handleSync();
+    if (gameState?.questions && gameState.currentQuestionIndex >= 0) {
+      fetchResponses(gameState.questions[gameState.currentQuestionIndex].id);
+    }
     return () => window.removeEventListener('sync_responses', handleSync);
   }, [gameState?.questions, gameState?.currentQuestionIndex]);
 
@@ -31,7 +33,7 @@ const GameMaster: React.FC = () => {
     setResponses(data || []);
   };
 
-  // Logic đếm ngược cục bộ
+  // Logic đếm ngược cục bộ độc lập
   useEffect(() => {
     if (gameState?.status === GameStatus.QUESTION_ACTIVE && questionStartedAt && gameState.currentQuestionIndex >= 0) {
       const start = new Date(questionStartedAt).getTime();
@@ -58,7 +60,7 @@ const GameMaster: React.FC = () => {
       setTimeLeft(0);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
-  }, [gameState?.status, questionStartedAt, gameState?.currentQuestionIndex, gameState?.questions]);
+  }, [gameState?.status, questionStartedAt, gameState?.currentQuestionIndex]);
 
   const handleTimeUp = async () => {
     if (gameState?.status !== GameStatus.QUESTION_ACTIVE) return;
@@ -68,7 +70,7 @@ const GameMaster: React.FC = () => {
   const jumpToQuestion = async (index: number) => {
     if (!matchId) return;
     
-    // Nếu chọn -1 (Màn hình chờ/Lobby)
+    // index = -1 là Màn hình chờ
     if (index === -1) {
       await supabase.from('matches').update({ 
         status: GameStatus.LOBBY,
@@ -77,6 +79,7 @@ const GameMaster: React.FC = () => {
         buzzer_p1_id: null,
         buzzer_p2_id: null
       }).eq('id', matchId);
+      setResponses([]);
       return;
     }
 
@@ -94,13 +97,14 @@ const GameMaster: React.FC = () => {
       question_started_at: new Date().toISOString()
     }).eq('id', matchId);
     
+    setResponses([]);
     (window as any).questionStartTime = Date.now();
   };
 
   const resetCurrentResponses = async () => {
     if (!gameState || gameState.currentQuestionIndex < 0) return;
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
-    if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ câu trả lời của câu này?")) {
+    if (window.confirm("Xóa toàn bộ câu trả lời của câu này?")) {
       await supabase.from('responses').delete().eq('question_id', currentQ.id);
       setResponses([]);
     }
@@ -120,31 +124,29 @@ const GameMaster: React.FC = () => {
     await supabase.from('players').update({ score: newScore }).eq('id', playerId);
   };
 
-  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black text-xl">ĐANG TẢI DỮ LIỆU...</div>;
+  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black text-xl">ĐANG KẾT NỐI HỆ THỐNG...</div>;
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex overflow-hidden font-inter">
-      {/* Question Selector Sidebar */}
-      <div className="w-20 bg-slate-900 border-r border-white/5 flex flex-col items-center py-6 gap-3 overflow-y-auto shrink-0 scrollbar-hide">
-        <span className="text-[10px] font-black text-slate-500 uppercase mb-2">ĐỀ THI</span>
-        
-        {/* Nút Lobby/Bắt đầu */}
+      {/* Sidebar Selector */}
+      <div className="w-24 bg-slate-900 border-r border-white/5 flex flex-col items-center py-6 gap-3 overflow-y-auto shrink-0 scrollbar-hide">
+        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-center">BẮT ĐẦU</span>
         <button
           onClick={() => jumpToQuestion(-1)}
-          className={`w-12 h-12 rounded-xl font-black transition-all shrink-0 flex items-center justify-center ${gameState.currentQuestionIndex === -1 ? 'bg-indigo-600 text-white scale-110 shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
-          title="Màn hình chờ"
+          className={`w-14 h-14 rounded-2xl font-black transition-all flex items-center justify-center text-2xl ${gameState.currentQuestionIndex === -1 ? 'bg-indigo-600 text-white scale-110 shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
         >
           🏠
         </button>
 
-        <div className="w-10 h-px bg-white/10 my-1"></div>
+        <div className="w-12 h-px bg-white/10 my-2"></div>
+        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">CÂU HỎI</span>
 
         {gameState.questions.map((_, idx) => (
           <button
             key={idx}
             onClick={() => jumpToQuestion(idx)}
-            className={`w-12 h-12 rounded-xl font-black transition-all shrink-0 ${gameState.currentQuestionIndex === idx ? 'bg-indigo-600 text-white scale-110 shadow-lg shadow-indigo-500/50' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+            className={`w-14 h-14 rounded-2xl font-black transition-all shrink-0 text-lg ${gameState.currentQuestionIndex === idx ? 'bg-indigo-600 text-white scale-110 shadow-xl' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
           >
             {idx + 1}
           </button>
@@ -164,7 +166,7 @@ const GameMaster: React.FC = () => {
             <button onClick={() => navigate(`/manage/${code}`)} className="bg-slate-800 hover:bg-slate-700 px-6 py-3 rounded-xl font-bold text-sm border border-white/5">SỬA ĐỀ</button>
             <button 
               onClick={() => jumpToQuestion(gameState.currentQuestionIndex + 1)}
-              className="bg-emerald-600 hover:bg-emerald-500 px-8 py-3 rounded-xl font-black shadow-lg shadow-emerald-500/20 transition active:scale-95"
+              className="bg-emerald-600 hover:bg-emerald-500 px-8 py-3 rounded-xl font-black shadow-lg transition active:scale-95"
             >
                TIẾP THEO →
             </button>
@@ -203,22 +205,23 @@ const GameMaster: React.FC = () => {
 
                       <div className="p-8 bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] shadow-inner">
                          <p className="text-emerald-400 font-black text-xs mb-1 uppercase opacity-60">Đáp án chính xác</p>
-                         <p className="text-3xl font-black text-white">{currentQ.correctAnswer || "Chưa có"}</p>
+                         <p className="text-3xl font-black text-white">{currentQ.correctAnswer || "Chưa thiết lập"}</p>
                       </div>
                     </div>
                  </div>
                ) : (
-                 <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
-                    <div className="text-9xl mb-8 opacity-10 animate-pulse">🎮</div>
-                    <p className="font-black text-3xl uppercase text-white/20">Màn hình chờ - Hãy chọn câu hỏi</p>
-                    <p className="text-slate-600 mt-4">Số lượng thí sinh: {gameState.players.length}</p>
+                 <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-12 text-center">
+                    <div className="text-9xl mb-8 opacity-10 animate-bounce">🏠</div>
+                    <p className="font-black text-4xl uppercase text-white/20 tracking-tighter">Màn hình chờ</p>
+                    <p className="text-slate-500 mt-4 text-xl font-medium">Hiện có <span className="text-indigo-400 font-black">{gameState.players.length}</span> thí sinh đang trong phòng.</p>
+                    <p className="text-slate-600 mt-2 italic">Hãy chọn câu hỏi ở thanh bên trái để bắt đầu thi đấu.</p>
                  </div>
                )}
             </div>
           </div>
 
           <div className="flex flex-col min-h-0">
-            <h3 className="font-black text-sm uppercase text-slate-500 mb-4 border-b border-white/5 pb-2">Bảng phản hồi ({responses.length})</h3>
+            <h3 className="font-black text-sm uppercase text-slate-500 mb-4 border-b border-white/5 pb-2">Đáp án Thí sinh ({responses.length})</h3>
             <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
               {gameState.players.sort((a,b) => b.score - a.score).map((p, idx) => {
                 const resp = responses.find(r => r.player_id === p.id);
@@ -248,7 +251,7 @@ const GameMaster: React.FC = () => {
                       </div>
                     ) : (
                       <div className="p-3 rounded-2xl bg-white/5 border border-white/5 border-dashed text-center opacity-30">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase italic">Chờ phản hồi...</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase italic">Chưa trả lời</p>
                       </div>
                     )}
                   </div>

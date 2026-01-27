@@ -1,20 +1,23 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { QuestionType } from "../types";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
-  // process.env.API_KEY được tiêm tự động bởi hệ thống
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("Không tìm thấy API Key. Hãy đảm bảo môi trường đã được cấu hình.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Hãy đóng vai một chuyên gia giáo dục. Tạo ${count} câu hỏi thi đấu trí tuệ về chủ đề: "${topic}". 
+      contents: `Hãy đóng vai một chuyên gia giáo dục. Tạo danh sách gồm ${count} câu hỏi thi đấu trí tuệ về chủ đề: "${topic}". 
       Yêu cầu:
-      - Đa dạng các loại: MCQ (trắc nghiệm), SHORT_ANSWER (tự luận ngắn), và BUZZER (câu hỏi bấm chuông nhanh).
+      - Loại câu hỏi: MCQ (trắc nghiệm), SHORT_ANSWER (tự luận ngắn), BUZZER (câu hỏi bấm chuông).
       - Ngôn ngữ: Tiếng Việt.
-      - Với MCQ, phải có đúng 4 lựa chọn trong mảng options.
-      - correctAnswer phải là chuỗi văn bản chính xác.`,
+      - Với MCQ, phải có mảng options chứa đúng 4 chuỗi đáp án.
+      - correctAnswer phải là đáp án đúng nhất.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -22,16 +25,15 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
           items: {
             type: Type.OBJECT,
             properties: {
-              type: { type: Type.STRING, description: 'Sử dụng một trong: MCQ, SHORT_ANSWER, hoặc BUZZER' },
+              type: { type: Type.STRING, description: 'MCQ, SHORT_ANSWER, hoặc BUZZER' },
               content: { type: Type.STRING, description: 'Nội dung câu hỏi' },
               options: { 
                 type: Type.ARRAY, 
                 items: { type: Type.STRING },
-                description: 'Chỉ cung cấp 4 lựa chọn nếu type là MCQ'
+                description: 'Cung cấp mảng 4 lựa chọn nếu là MCQ'
               },
               correctAnswer: { type: Type.STRING, description: 'Đáp án đúng' },
-              points: { type: Type.NUMBER, description: 'Số điểm của câu hỏi (thường là 10, 20, 30)' },
-              mediaType: { type: Type.STRING, description: 'Luôn trả về "none"' }
+              points: { type: Type.NUMBER, description: 'Điểm số (10, 20 hoặc 30)' }
             },
             required: ['type', 'content', 'correctAnswer', 'points']
           }
@@ -43,8 +45,8 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
     if (!text) return [];
     
     return JSON.parse(text);
-  } catch (error) {
-    console.error("Gemini Service Error:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Gemini AI Error:", error);
+    throw new Error(error.message || "Lỗi tạo câu hỏi từ AI");
   }
 };

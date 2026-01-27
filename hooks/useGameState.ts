@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.ts';
 import { GameState, GameStatus, Question } from '../types.ts';
 
@@ -32,7 +32,10 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         .eq('code', initialCode)
         .single();
 
-      if (matchError || !match) return;
+      if (matchError || !match) {
+        console.error("Match not found:", initialCode);
+        return;
+      }
 
       const { data: players } = await supabase
         .from('players')
@@ -65,17 +68,18 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   }, [fetchState]);
 
   useEffect(() => {
-    if (!initialCode || !matchId) return;
+    if (!matchId) return;
 
+    // Kênh Realtime cho Trận đấu và Người chơi
     const channel = supabase
-      .channel(`global_sync_${matchId}`)
+      .channel(`game_realtime_${matchId}`)
       .on('postgres_changes', { 
-        event: 'UPDATE', 
+        event: '*', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
       }, (payload) => {
-        // Luôn fetch lại state khi có thay đổi quan trọng để đảm bảo đồng bộ 100%
+        console.log("Match updated:", payload);
         fetchState();
       })
       .on('postgres_changes', { 
@@ -83,16 +87,17 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         schema: 'public', 
         table: 'players', 
         filter: `match_id=eq.${matchId}` 
-      }, () => {
+      }, (payload) => {
+        console.log("Players updated:", payload);
         fetchState();
       })
       .on('postgres_changes', { 
-        event: '*', 
+        event: 'INSERT', 
         schema: 'public', 
         table: 'responses', 
         filter: `match_id=eq.${matchId}` 
       }, () => {
-        // Thông báo cho các view cần load lại responses
+        // Thông báo cho UI nạp lại đáp án
         window.dispatchEvent(new CustomEvent('sync_responses'));
       })
       .subscribe();
@@ -100,7 +105,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [initialCode, matchId, fetchState]);
+  }, [matchId, fetchState]);
 
   const broadcastState = useCallback(async (newState: GameState) => {
     if (!matchId) return;

@@ -29,19 +29,21 @@ const PlayerView: React.FC = () => {
     }
   }, [routeCode]);
 
-  // RESET KHI CHUYỂN CÂU HỎI
+  // Kiểm tra đáp án đã tồn tại khi chuyển câu hỏi
   useEffect(() => {
     if (joined && myPlayerId && gameState?.currentQuestionIndex !== undefined) {
       setSubmitted(false);
       setLocalAnswer('');
       (window as any).questionStartTime = Date.now();
-      checkExistingResponse();
+      if (gameState.currentQuestionIndex >= 0) {
+        checkExistingResponse();
+      }
     }
   }, [gameState?.currentQuestionIndex, joined, myPlayerId]);
 
-  // Logic đếm ngược cục bộ dựa trên dữ liệu từ Database
+  // Đồng bộ đếm ngược cục bộ
   useEffect(() => {
-    if (gameState?.status === GameStatus.QUESTION_ACTIVE && questionStartedAt) {
+    if (gameState?.status === GameStatus.QUESTION_ACTIVE && questionStartedAt && gameState.currentQuestionIndex >= 0) {
       const start = new Date(questionStartedAt).getTime();
       const currentQ = gameState.questions[gameState.currentQuestionIndex];
       const limit = (currentQ?.timeLimit || 30) * 1000;
@@ -89,15 +91,22 @@ const PlayerView: React.FC = () => {
   };
 
   const joinGame = async () => {
-    if (!routeCode || !name || !matchId) {
-      alert("Hệ thống đang chuẩn bị, hãy đợi...");
+    if (!matchId) {
+      alert("Hệ thống đang kết nối máy chủ, vui lòng đợi trong giây lát...");
+      refresh();
       return;
     }
+    if (!name.trim()) {
+      alert("Vui lòng nhập tên của bạn!");
+      return;
+    }
+    
     setLoading(true);
     try {
       const safeName = name.trim();
       const { data, error } = await supabase.from('players').insert([{ match_id: matchId, name: safeName, score: 0 }]).select().single();
       if (error) throw error;
+      
       setMyPlayerId(data.id);
       setJoined(true);
       localStorage.setItem(`edu_quiz_id_${routeCode}`, data.id);
@@ -110,7 +119,6 @@ const PlayerView: React.FC = () => {
   };
 
   const handleConfirmAnswer = async () => {
-    // KHÓA: Nếu đã gửi, hoặc hết giờ, hoặc không trong QUESTION_ACTIVE
     if (!gameState || !myPlayerId || submitted || !matchId || !localAnswer || localTimeLeft <= 0 || gameState.status !== GameStatus.QUESTION_ACTIVE) return;
     
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
@@ -153,9 +161,7 @@ const PlayerView: React.FC = () => {
   };
 
   const handleBuzzer = async () => {
-    // KHÓA: Nếu hết giờ hoặc không trong trạng thái trả lời
     if (!gameState || !myPlayerId || !matchId || gameState.status !== GameStatus.QUESTION_ACTIVE || localTimeLeft <= 0) return;
-    
     const { data: latestMatch } = await supabase.from('matches').select('buzzer_p1_id, buzzer_p2_id').eq('id', matchId).single();
     if (latestMatch?.buzzer_p1_id === myPlayerId || latestMatch?.buzzer_p2_id === myPlayerId) return;
 
@@ -182,18 +188,19 @@ const PlayerView: React.FC = () => {
     return (
       <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-6 font-inter">
         <div className="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-500 border-b-8 border-indigo-100">
-          <h1 className="text-3xl font-black text-center mb-8 tracking-tighter">EduQuiz <span className="text-indigo-600">Pro</span></h1>
+          <h1 className="text-3xl font-black text-center mb-8 tracking-tighter uppercase">EduQuiz <span className="text-indigo-600">Pro</span></h1>
           <div className="space-y-4">
             <input 
-              placeholder="Họ tên thí sinh..." 
+              placeholder="Nhập họ tên của bạn..." 
               value={name} 
               onChange={e => setName(e.target.value)} 
               className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold outline-none shadow-inner" 
               onKeyPress={(e) => e.key === 'Enter' && joinGame()}
             />
-            <button onClick={joinGame} disabled={loading || !name.trim()} className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition disabled:opacity-50">
-              {loading ? 'ĐANG KẾT NỐI...' : 'THAM GIA THI ĐẤU'}
+            <button onClick={joinGame} disabled={loading} className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition disabled:opacity-50">
+              {loading ? 'ĐANG KẾT NỐI...' : 'THAM GIA NGAY'}
             </button>
+            <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">Mã trận đấu: {routeCode}</p>
           </div>
         </div>
       </div>
@@ -227,7 +234,6 @@ const PlayerView: React.FC = () => {
                <div className={`absolute top-4 right-4 bg-white/20 backdrop-blur-xl px-5 py-2 rounded-2xl text-2xl font-black text-white font-mono border border-white/20 ${isTimeUp ? 'bg-rose-600/50' : localTimeLeft < 10 ? 'bg-rose-500/50 animate-pulse' : ''}`}>
                  {localTimeLeft}s
                </div>
-               <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md">Minh họa</div>
             </div>
             
             <div className="p-6 space-y-8 max-w-2xl mx-auto w-full">
@@ -241,7 +247,7 @@ const PlayerView: React.FC = () => {
                   {isTimeUp ? (
                     <div className="bg-rose-50 p-10 rounded-[32px] text-center border-2 border-rose-100 shadow-inner animate-in zoom-in">
                       <p className="text-rose-500 font-black text-2xl uppercase tracking-widest">HẾT GIỜ!</p>
-                      <p className="text-rose-300 font-medium text-sm mt-2">Bạn không còn quyền trả lời câu này.</p>
+                      <p className="text-rose-300 font-medium text-sm mt-2">Bạn không thể trả lời câu hỏi này nữa.</p>
                     </div>
                   ) : (
                     <>
@@ -253,7 +259,7 @@ const PlayerView: React.FC = () => {
                               onClick={() => setLocalAnswer(opt)}
                               className={`p-6 text-left border-4 rounded-[28px] font-bold transition-all flex items-center gap-6 ${localAnswer === opt ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xl scale-[1.02]' : 'border-white bg-white hover:border-slate-200 shadow-sm'}`}
                             >
-                              <span className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl ${localAnswer === opt ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500'}`}>{String.fromCharCode(65+i)}</span>
+                              <span className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl ${localAnswer === opt ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-500'}`}>{String.fromCharCode(65+i)}</span>
                               <span className="text-xl">{opt}</span>
                             </button>
                           ))}
@@ -261,11 +267,11 @@ const PlayerView: React.FC = () => {
                       )}
                       {currentQ.type === QuestionType.SHORT_ANSWER && (
                         <div className="bg-white p-2 rounded-[32px] shadow-lg border-4 border-white focus-within:border-indigo-100 transition-all">
-                          <input value={localAnswer} onChange={e => setLocalAnswer(e.target.value)} className="w-full p-8 bg-transparent font-black text-2xl text-center outline-none" placeholder="Nhập đáp án..." autoFocus />
+                          <input value={localAnswer} onChange={e => setLocalAnswer(e.target.value)} className="w-full p-8 bg-transparent font-black text-2xl text-center outline-none" placeholder="Gõ đáp án vào đây..." autoFocus />
                         </div>
                       )}
                       <button onClick={handleConfirmAnswer} disabled={!localAnswer || loading} className="w-full text-white py-6 rounded-[32px] font-black text-2xl shadow-2xl bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200 disabled:opacity-50 transition active:scale-95">
-                        {loading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN'}
+                        {loading ? 'ĐANG GỬI...' : 'XÁC NHẬN ĐÁP ÁN'}
                       </button>
                     </>
                   )}
@@ -274,7 +280,7 @@ const PlayerView: React.FC = () => {
                 <div className="bg-white p-12 rounded-[48px] text-center border-4 border-emerald-50 shadow-2xl animate-in zoom-in duration-300 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16"></div>
                   <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner shadow-emerald-200">✓</div>
-                  <p className="text-slate-400 font-black uppercase text-xs mb-3 tracking-widest">Đáp án đã được lưu</p>
+                  <p className="text-slate-400 font-black uppercase text-xs mb-3 tracking-widest">Hệ thống đã nhận đáp án</p>
                   <p className="text-4xl font-black text-indigo-600 italic leading-tight">"{localAnswer}"</p>
                 </div>
               )}
@@ -284,14 +290,14 @@ const PlayerView: React.FC = () => {
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-8 animate-in fade-in duration-700">
              <div className="text-9xl animate-bounce drop-shadow-2xl">⏳</div>
              <div className="space-y-2">
-               <h2 className="text-4xl font-black text-slate-900 uppercase tracking-widest">Hãy chờ đợi</h2>
-               <p className="text-slate-400 font-medium italic">Đang chuẩn bị câu hỏi hoặc chuyển tiếp trạng thái.</p>
+               <h2 className="text-4xl font-black text-slate-900 uppercase tracking-widest">Sẵn sàng!</h2>
+               <p className="text-slate-400 font-medium italic">Vui lòng chờ Quản lý bắt đầu trận đấu hoặc chuyển câu hỏi.</p>
              </div>
           </div>
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-2xl border-t border-slate-200 flex items-center justify-between gap-6 z-40 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-2xl border-t border-slate-200 flex items-center justify-between gap-6 z-40 shadow-2xl">
         <button 
           onClick={handleBuzzer}
           disabled={!!buzzerRank || (!!gameState.buzzerP1Id && !!gameState.buzzerP2Id) || gameState.status !== GameStatus.QUESTION_ACTIVE || isTimeUp}
