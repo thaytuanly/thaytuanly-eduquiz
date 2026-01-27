@@ -44,10 +44,10 @@ const PlayerView: React.FC = () => {
         .select('answer')
         .eq('player_id', myPlayerId)
         .eq('question_id', currentQ.id)
-        .maybeSingle(); // Dùng maybeSingle để tránh lỗi nếu không có dòng nào
+        .maybeSingle();
 
       if (data) { 
-        setLocalAnswer(data.answer); 
+        setLocalAnswer(data.answer || ''); 
         setSubmitted(true); 
       } else { 
         setSubmitted(false); 
@@ -87,10 +87,14 @@ const PlayerView: React.FC = () => {
     try {
       const startTime = (window as any).questionStartTime || Date.now();
       const responseTime = Math.max(0, Math.floor(Date.now() - startTime));
-      const isCorrect = localAnswer.trim().toLowerCase() === currentQ.correctAnswer.trim().toLowerCase();
-      const points = isCorrect ? currentQ.points : 0;
       
-      // Gửi lên bảng responses
+      // Kiểm tra an toàn trước khi trim()
+      const answerString = localAnswer ? String(localAnswer).trim().toLowerCase() : "";
+      const correctAnswerString = currentQ.correctAnswer ? String(currentQ.correctAnswer).trim().toLowerCase() : "";
+      
+      const isCorrect = answerString === correctAnswerString;
+      const points = isCorrect ? (currentQ.points || 0) : 0;
+      
       const { error: responseError } = await supabase.from('responses').upsert({
         match_id: matchId, 
         player_id: myPlayerId, 
@@ -103,9 +107,7 @@ const PlayerView: React.FC = () => {
 
       if (responseError) throw responseError;
 
-      // Cập nhật điểm cho thí sinh trong bảng players
       if (isCorrect) {
-        // Lấy điểm hiện tại để cộng dồn chính xác
         const { data: p } = await supabase.from('players').select('score').eq('id', myPlayerId).single();
         const currentScore = p?.score || 0;
         await supabase.from('players').update({ score: currentScore + points }).eq('id', myPlayerId);
@@ -116,7 +118,6 @@ const PlayerView: React.FC = () => {
       console.error("Lỗi hệ thống khi gửi đáp án:", error);
       alert("Lỗi: " + (error.message || "Không thể gửi đáp án. Vui lòng thử lại."));
     } finally {
-      // Đảm bảo loading luôn về false để giải phóng nút bấm
       setLoading(false);
     }
   };

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.ts';
-import { GameState, GameStatus } from '../types.ts';
+import { GameState, GameStatus, Question } from '../types.ts';
 
 export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCode?: string) => {
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -27,11 +27,24 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
 
       setMatchId(match.id);
       
+      // Mapping questions from snake_case to camelCase
+      const mappedQuestions: Question[] = (match.questions || []).map((q: any) => ({
+        id: q.id,
+        type: q.type,
+        content: q.content,
+        options: q.options,
+        correctAnswer: q.correct_answer || '', // Chuyển từ correct_answer -> correctAnswer
+        points: q.points || 0,
+        timeLimit: q.time_limit || 30, // Chuyển từ time_limit -> timeLimit
+        mediaUrl: q.media_url,
+        mediaType: q.media_type || 'none'
+      })).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+
       setGameState({
         matchCode: match.code,
         status: match.status as GameStatus,
         currentQuestionIndex: match.current_question_index,
-        questions: (match.questions || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)),
+        questions: mappedQuestions,
         players: players || [],
         timer: match.timer || 0,
         maxTime: 0,
@@ -62,7 +75,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         setGameState(prev => prev ? {
           ...prev,
           status: payload.new.status,
-          currentQuestionIndex: payload.new.current_question_index,
+          current_question_index: payload.new.current_question_index,
           timer: payload.new.timer,
           activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
           buzzerP1Id: payload.new.buzzer_p1_id,
