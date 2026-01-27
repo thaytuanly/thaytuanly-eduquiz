@@ -3,11 +3,10 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { QuestionType } from "../types";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
-  // Đảm bảo API_KEY được lấy chính xác từ process.env
+  // Đảm bảo lấy API key từ process.env
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    console.error("Gemini API Key is missing in process.env.API_KEY");
-    return [];
+    throw new Error("API Key is missing. Please set process.env.API_KEY.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -45,13 +44,12 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
       }
     });
 
-    // Truy cập trực tiếp thuộc tính .text (không phải phương thức)
     const text = response.text;
     if (!text) return [];
     
     return JSON.parse(text);
   } catch (error) {
     console.error("Gemini Service Error:", error);
-    return [];
+    throw error;
   }
 };

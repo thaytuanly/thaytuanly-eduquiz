@@ -1,7 +1,7 @@
 
 -- HƯỚNG DẪN: Chạy đoạn code này trong SQL Editor của Supabase
 
--- 1. Đảm bảo các bảng cơ bản tồn tại
+-- 1. Cập nhật bảng matches
 CREATE TABLE IF NOT EXISTS matches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT UNIQUE NOT NULL,
@@ -9,12 +9,19 @@ CREATE TABLE IF NOT EXISTS matches (
   status TEXT DEFAULT 'LOBBY',
   current_question_index INT DEFAULT -1,
   timer INT DEFAULT 0,
+  question_started_at TIMESTAMP WITH TIME ZONE, -- Cột mới để tính toán thời gian thực
   buzzer_p1_id UUID,
   buzzer_t1 BIGINT,
   buzzer_p2_id UUID,
   buzzer_t2 BIGINT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Bật Realtime cho bảng matches và responses (QUAN TRỌNG)
+-- Chạy lệnh này nếu chưa bật Realtime trong giao diện Supabase
+-- alter publication supabase_realtime add table matches;
+-- alter publication supabase_realtime add table responses;
+-- alter publication supabase_realtime add table players;
 
 CREATE TABLE IF NOT EXISTS questions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,8 +46,6 @@ CREATE TABLE IF NOT EXISTS players (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Cấu trúc bảng responses (Xóa và tạo lại để đảm bảo sạch sẽ nếu cần)
--- Lưu ý: Nếu bạn có dữ liệu quan trọng, hãy dùng ALTER TABLE thay thế
 CREATE TABLE IF NOT EXISTS responses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
@@ -53,7 +58,6 @@ CREATE TABLE IF NOT EXISTS responses (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. Thiết lập ràng buộc UNIQUE (Quan trọng nhất cho lệnh upsert)
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'responses_player_id_question_id_unique') THEN
@@ -61,7 +65,6 @@ BEGIN
     END IF;
 END $$;
 
--- 4. Vô hiệu hóa RLS để tránh lỗi phân quyền khi client gửi dữ liệu
 ALTER TABLE matches DISABLE ROW LEVEL SECURITY;
 ALTER TABLE questions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE players DISABLE ROW LEVEL SECURITY;

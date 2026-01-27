@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase.ts';
 import { GameState, GameStatus, Question } from '../types.ts';
 
 export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCode?: string) => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
+  const [questionStartedAt, setQuestionStartedAt] = useState<string | null>(null);
 
   const mapQuestions = (rawQuestions: any[]): Question[] => {
     return (rawQuestions || []).map((q: any) => ({
@@ -40,16 +41,14 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         .order('created_at', { ascending: true });
 
       setMatchId(match.id);
+      setQuestionStartedAt(match.question_started_at);
       
       setGameState({
         matchCode: match.code,
         status: match.status as GameStatus,
         currentQuestionIndex: match.current_question_index,
         questions: mapQuestions(match.questions),
-        players: (players || []).map(p => ({
-          ...p,
-          isReady: true // Default true for this schema
-        })),
+        players: (players || []).map(p => ({ ...p, isReady: true })),
         timer: match.timer || 0,
         maxTime: 0,
         activeBuzzerPlayerId: match.active_buzzer_player_id,
@@ -68,25 +67,23 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   useEffect(() => {
     if (!initialCode || !matchId) return;
 
-    // Lắng nghe realtime mọi thay đổi của match và players
     const channel = supabase
-      .channel(`game_sync_${matchId}`)
+      .channel(`global_sync_${matchId}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
       }, (payload) => {
-        // Cập nhật State ngay lập tức khi DB thay đổi
+        setQuestionStartedAt(payload.new.question_started_at);
         setGameState(prev => {
           if (!prev) return null;
           
           const isNewQuestion = payload.new.current_question_index !== prev.currentQuestionIndex;
           const isNewStatus = payload.new.status !== prev.status;
 
-          // Nếu đổi câu hỏi hoặc trạng thái quan trọng, fetch lại để đảm bảo dữ liệu questions/players mới nhất
           if (isNewQuestion || isNewStatus) {
-            fetchState();
+            fetchState(); // Re-fetch to get new questions list if changed
           }
 
           return {
@@ -126,11 +123,11 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         buzzer_p1_id: newState.buzzerP1Id,
         buzzer_p2_id: newState.buzzerP2Id
       }).eq('id', matchId);
-      setGameState(newState);
+      // fetchState() is called by the subscription
     } catch (e) {
       console.error("Failed to broadcast state:", e);
     }
   }, [matchId]);
 
-  return { gameState, broadcastState, matchId, refresh: fetchState };
+  return { gameState, broadcastState, matchId, refresh: fetchState, questionStartedAt };
 };
