@@ -13,7 +13,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
       type: q.type,
       content: q.content,
       options: q.options,
-      correctAnswer: q.correct_answer || q.correctAnswer || '', // Chấp nhận cả 2 định dạng
+      correctAnswer: q.correct_answer || q.correctAnswer || '',
       points: q.points || 0,
       timeLimit: q.time_limit || q.timeLimit || 30,
       mediaUrl: q.media_url || q.mediaUrl,
@@ -73,24 +73,18 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         table: 'matches', 
         filter: `id=eq.${matchId}` 
       }, async (payload) => {
-        // Nếu có sự thay đổi về index câu hỏi hoặc trạng thái, nên re-fetch nhẹ để đảm bảo đồng bộ
         setGameState(prev => {
           if (!prev) return null;
           return {
             ...prev,
             status: payload.new.status,
-            currentQuestionIndex: payload.new.current_question_index,
+            currentQuestionIndex: payload.new.current_question_index, // Cập nhật đồng bộ index
             timer: payload.new.timer,
             activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
             buzzerP1Id: payload.new.buzzer_p1_id,
             buzzerP2Id: payload.new.buzzer_p2_id
           };
         });
-
-        // Nếu chuyển sang câu hỏi mới mà mảng câu hỏi đang trống, tải lại toàn bộ
-        if (payload.new.current_question_index >= 0 && (!gameState?.questions || gameState.questions.length === 0)) {
-          fetchState();
-        }
       })
       .on('postgres_changes', { 
         event: '*', 
@@ -107,14 +101,14 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         table: 'questions',
         filter: `match_id=eq.${matchId}`
       }, () => {
-        fetchState(); // Tải lại câu hỏi nếu có bất kỳ thay đổi nào từ phía Manager
+        fetchState();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(matchChannel);
     };
-  }, [initialCode, matchId, gameState?.questions?.length]);
+  }, [initialCode, matchId]);
 
   const broadcastState = useCallback(async (newState: GameState) => {
     if (!matchId) return;

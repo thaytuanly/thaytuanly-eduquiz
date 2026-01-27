@@ -27,14 +27,17 @@ const PlayerView: React.FC = () => {
     }
   }, [routeCode]);
 
+  // Reset khi câu hỏi thay đổi
   useEffect(() => {
-    if (joined && myPlayerId && gameState?.currentQuestionIndex !== undefined && gameState.questions?.length > 0) {
+    if (joined && myPlayerId && gameState?.currentQuestionIndex !== undefined) {
+      setSubmitted(false);
+      setLocalAnswer('');
       checkExistingResponse();
     }
-  }, [joined, myPlayerId, gameState?.currentQuestionIndex, gameState?.questions]);
+  }, [gameState?.currentQuestionIndex]);
 
   const checkExistingResponse = async () => {
-    if (!gameState?.questions || gameState.currentQuestionIndex < 0) return;
+    if (!gameState?.questions || gameState.currentQuestionIndex < 0 || !myPlayerId) return;
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
     if (!currentQ) return;
     
@@ -49,9 +52,6 @@ const PlayerView: React.FC = () => {
       if (data) { 
         setLocalAnswer(data.answer || ''); 
         setSubmitted(true); 
-      } else { 
-        setSubmitted(false); 
-        setLocalAnswer(''); 
       }
     } catch (e) {
       console.error("Lỗi kiểm tra đáp án cũ:", e);
@@ -60,7 +60,7 @@ const PlayerView: React.FC = () => {
 
   const joinGame = async () => {
     if (!routeCode || !name || !matchId) {
-      alert("Đang chuẩn bị phòng, vui lòng đợi giây lát...");
+      alert("Phòng chưa sẵn sàng, vui lòng thử lại!");
       return;
     }
     setLoading(true);
@@ -83,19 +83,15 @@ const PlayerView: React.FC = () => {
     if (!gameState || !myPlayerId || submitted || !matchId || !localAnswer) return;
     
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
-    if (!currentQ) {
-      alert("Không tìm thấy dữ liệu câu hỏi. Vui lòng đợi hệ thống đồng bộ!");
-      return;
-    }
+    if (!currentQ) return;
 
     setLoading(true);
     try {
       const startTime = (window as any).questionStartTime || Date.now();
       const responseTime = Math.max(0, Math.floor(Date.now() - startTime));
       
-      // XỬ LÝ CHUỖI CỰC KỲ AN TOÀN - Nuclear Option
       const answerString = (localAnswer || "").toString().trim().toLowerCase();
-      const correctAnswerString = (currentQ.correctAnswer || (currentQ as any).correct_answer || "").toString().trim().toLowerCase();
+      const correctAnswerString = (currentQ.correctAnswer || "").toString().trim().toLowerCase();
       
       const isCorrect = answerString === correctAnswerString;
       const points = isCorrect ? (currentQ.points || 0) : 0;
@@ -120,8 +116,7 @@ const PlayerView: React.FC = () => {
 
       setSubmitted(true);
     } catch (error: any) {
-      console.error("Lỗi gửi đáp án:", error);
-      alert("Lỗi: " + (error.message || "Không thể gửi đáp án. Hãy kiểm tra kết nối mạng!"));
+      alert("Lỗi: " + (error.message || "Không thể gửi đáp án!"));
     } finally {
       setLoading(false);
     }
@@ -151,8 +146,8 @@ const PlayerView: React.FC = () => {
 
   if (!joined) {
     return (
-      <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-6">
-        <div className="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-500">
+      <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-6 font-inter">
+        <div className="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md">
           <h1 className="text-3xl font-black text-center mb-8">EduQuiz <span className="text-indigo-600">Pro</span></h1>
           <div className="space-y-4">
             <input 
@@ -204,6 +199,9 @@ const PlayerView: React.FC = () => {
             <div className="h-[30vh] bg-black relative flex items-center justify-center overflow-hidden">
                <MediaRenderer url={currentQ.mediaUrl} type={currentQ.mediaType} />
                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black text-white uppercase tracking-widest">Minh họa</div>
+               {gameState.timer > 0 && (
+                 <div className="absolute top-4 right-4 bg-white/20 backdrop-blur px-4 py-1.5 rounded-full text-xl font-black text-white font-mono">{gameState.timer}s</div>
+               )}
             </div>
             
             <div className="p-6 space-y-6 max-w-xl mx-auto w-full">
@@ -261,13 +259,12 @@ const PlayerView: React.FC = () => {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-6">
              <div className="text-8xl animate-bounce">⏳</div>
-             <h2 className="text-3xl font-black text-slate-800 uppercase tracking-widest">Vui lòng chờ câu hỏi...</h2>
-             <p className="text-slate-400 font-medium">Trận đấu sẽ bắt đầu hoặc chuyển sang câu kế tiếp khi người quản lý sẵn sàng.</p>
+             <h2 className="text-3xl font-black text-slate-800 uppercase tracking-widest">Sẵn sàng!</h2>
+             <p className="text-slate-400 font-medium italic">Vui lòng chờ câu hỏi tiếp theo từ quản lý.</p>
           </div>
         )}
       </main>
 
-      {/* Buzzer Area */}
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-xl border-t border-slate-200 flex items-center justify-between gap-6 z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
         <button 
           onClick={handleBuzzer}
@@ -280,7 +277,7 @@ const PlayerView: React.FC = () => {
               : 'bg-rose-600 text-white active:bg-rose-700 shadow-rose-200 animate-pulse'
           }`}
         >
-          {buzzerRank ? 'ĐÃ NHẤN' : ( (!!gameState.buzzerP1Id && !!gameState.buzzerP2Id) ? 'ĐÃ ĐỦ 2 NGƯỜI' : 'NHẤN CHUÔNG!') }
+          {buzzerRank ? 'ĐÃ NHẤN' : 'NHẤN CHUÔNG!'}
         </button>
 
         {buzzerRank && (

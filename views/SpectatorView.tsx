@@ -34,9 +34,9 @@ const SpectatorView: React.FC = () => {
       <div className="grid lg:grid-cols-4 gap-10 flex-1 overflow-hidden">
         <div className="lg:col-span-3 flex flex-col min-h-0">
           {(gameState.status === GameStatus.QUESTION_ACTIVE || gameState.status === GameStatus.SHOWING_RESULTS) && currentQ ? (
-            <div className="bg-white rounded-[64px] overflow-hidden flex flex-col flex-1 shadow-[0_0_100px_rgba(0,0,0,0.5)] border-8 border-white/5">
+            <div className="bg-white rounded-[64px] overflow-hidden flex flex-col flex-1 shadow-[0_0_100px_rgba(0,0,0,0.5)] border-8 border-white/5 relative">
               <div className="grid grid-cols-3 flex-1 min-h-0">
-                <div className="col-span-1 bg-black flex items-center justify-center relative border-r-4 border-slate-100">
+                <div className="col-span-1 bg-black flex items-center justify-center relative border-r-4 border-slate-100 min-h-[400px]">
                   <MediaRenderer url={currentQ.mediaUrl} type={currentQ.mediaType} />
                 </div>
                 
@@ -55,19 +55,22 @@ const SpectatorView: React.FC = () => {
                   
                   {currentQ.type === QuestionType.MCQ && (
                     <div className="grid grid-cols-2 gap-6">
-                      {currentQ.options?.map((opt, i) => (
-                        <div key={i} className={`p-8 bg-white border-4 border-slate-100 rounded-[40px] text-slate-700 font-black text-2xl flex items-center gap-6 shadow-sm transition-all ${gameState.status === GameStatus.SHOWING_RESULTS && opt === currentQ.correctAnswer ? 'bg-emerald-500 border-emerald-400 text-white scale-105 shadow-emerald-500/20' : ''}`}>
-                          <span className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg text-3xl ${gameState.status === GameStatus.SHOWING_RESULTS && opt === currentQ.correctAnswer ? 'bg-white text-emerald-600' : 'bg-slate-100 text-indigo-600'}`}>{String.fromCharCode(65+i)}</span>
-                          <span className="truncate">{opt}</span>
-                        </div>
-                      ))}
+                      {currentQ.options?.map((opt, i) => {
+                        const isCorrect = gameState.status === GameStatus.SHOWING_RESULTS && (opt === currentQ.correctAnswer || opt === (currentQ as any).correct_answer);
+                        return (
+                          <div key={i} className={`p-8 bg-white border-4 rounded-[40px] text-slate-700 font-black text-2xl flex items-center gap-6 shadow-sm transition-all duration-700 ${isCorrect ? 'bg-emerald-500 border-emerald-400 text-white scale-110 shadow-emerald-500/40 z-10' : 'border-slate-100 opacity-80'}`}>
+                            <span className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg text-3xl ${isCorrect ? 'bg-white text-emerald-600' : 'bg-slate-100 text-indigo-600'}`}>{String.fromCharCode(65+i)}</span>
+                            <span className="truncate">{opt}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
-                  {gameState.status === GameStatus.SHOWING_RESULTS && (
-                    <div className="mt-12 p-10 bg-emerald-500 rounded-[48px] shadow-2xl shadow-emerald-500/20 animate-in zoom-in duration-500 text-center">
-                       <p className="text-sm font-black opacity-70 uppercase tracking-widest mb-3 text-white">Đáp án chính xác</p>
-                       <p className="text-5xl font-black text-white italic">"{currentQ.correctAnswer}"</p>
+                  {gameState.status === GameStatus.SHOWING_RESULTS && currentQ.type !== QuestionType.MCQ && (
+                    <div className="mt-12 p-12 bg-emerald-500 rounded-[48px] shadow-2xl shadow-emerald-500/40 animate-in zoom-in duration-700 text-center border-8 border-emerald-400/50">
+                       <p className="text-lg font-black opacity-80 uppercase tracking-widest mb-4 text-white">Đáp án chính xác</p>
+                       <p className="text-6xl font-black text-white italic drop-shadow-lg">"{currentQ.correctAnswer}"</p>
                     </div>
                   )}
                 </div>
@@ -86,9 +89,9 @@ const SpectatorView: React.FC = () => {
             </div>
           ) : (
              <div className="bg-white rounded-[64px] p-20 text-center flex-1 flex flex-col justify-center items-center shadow-2xl border-8 border-white/5">
-                <h2 className="text-6xl font-black text-indigo-950 mb-4">TRẬN ĐẤU KẾT THÚC</h2>
-                <div className="text-9xl mb-12 animate-bounce">🏆</div>
-                <p className="text-2xl font-bold text-slate-400 italic">Vinh quang thuộc về những người xứng đáng!</p>
+                <h2 className="text-7xl font-black text-indigo-950 mb-8">KẾT THÚC TRẬN ĐẤU</h2>
+                <div className="text-[200px] mb-12 animate-bounce drop-shadow-2xl">🏆</div>
+                <p className="text-3xl font-bold text-slate-400 italic">Vinh quang dành cho người chiến thắng!</p>
              </div>
           )}
         </div>
@@ -102,10 +105,10 @@ const SpectatorView: React.FC = () => {
               
               return (
                 <div key={p.id} className={`p-8 rounded-[40px] flex justify-between items-center transition-all duration-500 relative overflow-hidden ${
-                  isBuzzer1 ? 'bg-emerald-500 text-white ring-8 ring-emerald-400/50 animate-pulse' : 
-                  isBuzzer2 ? 'bg-amber-500 text-indigo-950 ring-8 ring-amber-400/50 animate-pulse' :
+                  isBuzzer1 ? 'bg-emerald-500 text-white ring-8 ring-emerald-400/50 scale-105 z-10' : 
+                  isBuzzer2 ? 'bg-amber-500 text-indigo-950 ring-8 ring-amber-400/50 scale-105 z-10' :
                   idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-indigo-950 scale-105 shadow-xl' : 
-                  'bg-white/5 border border-white/10 hover:bg-white/10'
+                  'bg-white/5 border border-white/10'
                 }`}>
                   <div className="flex items-center gap-6 overflow-hidden">
                     <span className={`text-3xl font-black italic ${isBuzzer1 || isBuzzer2 ? 'text-white' : idx === 0 ? 'text-indigo-900' : 'text-indigo-400'}`}>
@@ -120,16 +123,6 @@ const SpectatorView: React.FC = () => {
           </div>
         </div>
       </div>
-      
-      <style>{`
-        @keyframes pulse-fast {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.8; transform: scale(0.98); }
-        }
-        .animate-pulse {
-          animation: pulse-fast 0.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-      `}</style>
     </div>
   );
 };
