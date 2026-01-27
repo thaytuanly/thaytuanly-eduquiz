@@ -1,17 +1,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
-import { GameState, GameStatus, Player, Question } from '../types';
+import { supabase } from '../lib/supabase.ts';
+import { GameState, GameStatus } from '../types.ts';
 
 export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCode?: string) => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
 
-  const isConfigured = !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY;
+  const isConfigured = !!supabase;
 
   // 1. Tải dữ liệu ban đầu
   const fetchState = useCallback(async () => {
-    if (!initialCode || !isConfigured) return;
+    if (!initialCode) return;
 
     try {
       const { data: match, error: matchError } = await supabase
@@ -46,7 +46,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     } catch (e) {
       console.error("Supabase request failed:", e);
     }
-  }, [initialCode, isConfigured]);
+  }, [initialCode]);
 
   useEffect(() => {
     fetchState();
@@ -54,7 +54,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
 
   // 2. Lắng nghe Realtime
   useEffect(() => {
-    if (!initialCode || !matchId || !isConfigured) return;
+    if (!initialCode || !matchId) return;
 
     const matchChannel = supabase
       .channel(`match:${initialCode}`)
@@ -67,7 +67,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         setGameState(prev => prev ? {
           ...prev,
           status: payload.new.status,
-          currentQuestionIndex: payload.new.current_question_index,
+          current_question_index: payload.new.current_question_index,
           timer: payload.new.timer,
           activeBuzzerPlayerId: payload.new.active_buzzer_player_id
         } : null);
@@ -86,11 +86,11 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     return () => {
       supabase.removeChannel(matchChannel);
     };
-  }, [initialCode, matchId, isConfigured]);
+  }, [initialCode, matchId]);
 
   // 3. Hàm cập nhật trạng thái (Dành cho Manager)
   const broadcastState = useCallback(async (newState: GameState) => {
-    if (!matchId || !isConfigured) return;
+    if (!matchId) return;
 
     try {
       await supabase.from('matches').update({
@@ -104,7 +104,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     } catch (e) {
       console.error("Failed to broadcast state:", e);
     }
-  }, [matchId, isConfigured]);
+  }, [matchId]);
 
   return { gameState, broadcastState, matchId };
 };

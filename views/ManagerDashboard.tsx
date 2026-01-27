@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { Question, QuestionType, GameStatus } from '../types';
-import { generateQuestionsAI } from '../services/geminiService';
+import { supabase } from '../lib/supabase.ts';
+import { Question, QuestionType } from '../types.ts';
+import { generateQuestionsAI } from '../services/geminiService.ts';
 
 const ManagerDashboard: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -49,7 +49,6 @@ const ManagerDashboard: React.FC = () => {
   };
 
   const updateQuestion = async (id: string, updates: Partial<Question>) => {
-    // Map camelCase to snake_case for DB
     const dbUpdates: any = {};
     if (updates.content !== undefined) dbUpdates.content = updates.content;
     if (updates.correctAnswer !== undefined) dbUpdates.correct_answer = updates.correctAnswer;

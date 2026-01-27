@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import HomeView from './views/HomeView';
-import LoginView from './views/LoginView';
-import ManagerMatchList from './views/ManagerMatchList';
-import ManagerDashboard from './views/ManagerDashboard';
-import GameMaster from './views/GameMaster';
-import PlayerView from './views/PlayerView';
-import SpectatorView from './views/SpectatorView';
+import HomeView from './views/HomeView.tsx';
+import LoginView from './views/LoginView.tsx';
+import ManagerMatchList from './views/ManagerMatchList.tsx';
+import ManagerDashboard from './views/ManagerDashboard.tsx';
+import GameMaster from './views/GameMaster.tsx';
+import PlayerView from './views/PlayerView.tsx';
+import SpectatorView from './views/SpectatorView.tsx';
 
 const App: React.FC = () => {
   return (
