@@ -29,7 +29,6 @@ const PlayerView: React.FC = () => {
     }
   }, [routeCode]);
 
-  // Kiểm tra đáp án đã tồn tại khi chuyển câu hỏi
   useEffect(() => {
     if (joined && myPlayerId && gameState?.currentQuestionIndex !== undefined) {
       setSubmitted(false);
@@ -41,7 +40,6 @@ const PlayerView: React.FC = () => {
     }
   }, [gameState?.currentQuestionIndex, joined, myPlayerId]);
 
-  // Đồng bộ đếm ngược cục bộ
   useEffect(() => {
     if (gameState?.status === GameStatus.QUESTION_ACTIVE && questionStartedAt && gameState.currentQuestionIndex >= 0) {
       const start = new Date(questionStartedAt).getTime();
@@ -59,7 +57,7 @@ const PlayerView: React.FC = () => {
         if (remaining <= 0) {
           clearInterval(timerIntervalRef.current);
         }
-      }, 200);
+      }, 500);
 
       return () => clearInterval(timerIntervalRef.current);
     } else {
@@ -92,11 +90,13 @@ const PlayerView: React.FC = () => {
 
   const joinGame = async () => {
     if (!matchId) {
-      // Thử refresh state một lần nữa
-      refresh();
-      alert("Hệ thống đang kết nối, vui lòng thử lại sau 2 giây...");
-      return;
+      await refresh(); // Thử fetch lại state ngay khi bấm nút
+      if (!matchId) {
+        alert("Hệ thống chưa tìm thấy phòng thi. Vui lòng thử lại sau 2 giây.");
+        return;
+      }
     }
+    
     if (!name.trim()) {
       alert("Vui lòng nhập tên của bạn!");
       return;
@@ -105,13 +105,19 @@ const PlayerView: React.FC = () => {
     setLoading(true);
     try {
       const safeName = name.trim();
-      const { data, error } = await supabase.from('players').insert([{ match_id: matchId, name: safeName, score: 0 }]).select().single();
+      const { data, error } = await supabase.from('players').insert([{ 
+        match_id: matchId, 
+        name: safeName, 
+        score: 0 
+      }]).select().single();
+      
       if (error) throw error;
       
       setMyPlayerId(data.id);
       setJoined(true);
       localStorage.setItem(`edu_quiz_id_${routeCode}`, data.id);
       localStorage.setItem(`edu_quiz_name_${routeCode}`, safeName);
+      refresh(); // Báo hiệu cho Manager thấy mình vừa vào
     } catch (error: any) {
       alert("Lỗi tham gia: " + error.message);
     } finally {
@@ -154,6 +160,7 @@ const PlayerView: React.FC = () => {
       }
 
       setSubmitted(true);
+      refresh(); // Để manager thấy đáp án ngay
     } catch (error: any) {
       alert("Lỗi gửi đáp án: " + error.message);
     } finally {
@@ -202,14 +209,17 @@ const PlayerView: React.FC = () => {
             <button onClick={joinGame} disabled={loading} className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition disabled:opacity-50">
               {loading ? 'ĐANG KẾT NỐI...' : 'THAM GIA NGAY'}
             </button>
-            <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">Mã trận đấu: {routeCode}</p>
+            <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">Phòng thi: {routeCode}</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (!gameState) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-black text-indigo-600 animate-pulse uppercase tracking-widest">Đang tải trận đấu...</div>;
+  if (!gameState) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-black text-indigo-600 animate-pulse uppercase tracking-widest gap-4">
+    <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    Đang tải trận đấu...
+  </div>;
 
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
   const myPlayerData = gameState.players.find(p => p.id === myPlayerId);
@@ -249,7 +259,7 @@ const PlayerView: React.FC = () => {
                   {isTimeUp ? (
                     <div className="bg-rose-50 p-10 rounded-[32px] text-center border-2 border-rose-100 shadow-inner animate-in zoom-in">
                       <p className="text-rose-500 font-black text-2xl uppercase tracking-widest">HẾT GIỜ!</p>
-                      <p className="text-rose-300 font-medium text-sm mt-2">Bạn không thể trả lời câu hỏi này nữa.</p>
+                      <p className="text-rose-300 font-medium text-sm mt-2">Đã quá thời gian quy định.</p>
                     </div>
                   ) : (
                     <>
@@ -269,11 +279,11 @@ const PlayerView: React.FC = () => {
                       )}
                       {currentQ.type === QuestionType.SHORT_ANSWER && (
                         <div className="bg-white p-2 rounded-[32px] shadow-lg border-4 border-white focus-within:border-indigo-100 transition-all">
-                          <input value={localAnswer} onChange={e => setLocalAnswer(e.target.value)} className="w-full p-8 bg-transparent font-black text-2xl text-center outline-none" placeholder="Gõ đáp án vào đây..." autoFocus />
+                          <input value={localAnswer} onChange={e => setLocalAnswer(e.target.value)} className="w-full p-8 bg-transparent font-black text-2xl text-center outline-none" placeholder="Gõ đáp án..." autoFocus />
                         </div>
                       )}
                       <button onClick={handleConfirmAnswer} disabled={!localAnswer || loading} className="w-full text-white py-6 rounded-[32px] font-black text-2xl shadow-2xl bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200 disabled:opacity-50 transition active:scale-95">
-                        {loading ? 'ĐANG GỬI...' : 'XÁC NHẬN ĐÁP ÁN'}
+                        {loading ? 'ĐANG GỬI...' : 'GỬI ĐÁP ÁN'}
                       </button>
                     </>
                   )}
@@ -282,7 +292,7 @@ const PlayerView: React.FC = () => {
                 <div className="bg-white p-12 rounded-[48px] text-center border-4 border-emerald-50 shadow-2xl animate-in zoom-in duration-300 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16"></div>
                   <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner shadow-emerald-200">✓</div>
-                  <p className="text-slate-400 font-black uppercase text-xs mb-3 tracking-widest">Hệ thống đã nhận đáp án</p>
+                  <p className="text-slate-400 font-black uppercase text-xs mb-3 tracking-widest">Đã ghi nhận đáp án</p>
                   <p className="text-4xl font-black text-indigo-600 italic leading-tight">"{localAnswer}"</p>
                 </div>
               )}
@@ -290,10 +300,10 @@ const PlayerView: React.FC = () => {
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-8 animate-in fade-in duration-700">
-             <div className="text-9xl animate-bounce drop-shadow-2xl">⏳</div>
+             <div className="text-9xl animate-bounce drop-shadow-2xl">🎮</div>
              <div className="space-y-2">
                <h2 className="text-4xl font-black text-slate-900 uppercase tracking-widest">Sẵn sàng!</h2>
-               <p className="text-slate-400 font-medium italic">Vui lòng chờ Quản lý bắt đầu trận đấu hoặc chuyển câu hỏi.</p>
+               <p className="text-slate-400 font-medium italic">Vui lòng chờ Quản lý bắt đầu câu hỏi tiếp theo.</p>
              </div>
           </div>
         )}
@@ -307,7 +317,7 @@ const PlayerView: React.FC = () => {
             buzzerRank ? 'bg-slate-200 text-slate-400 border-4 border-white' : (!!gameState.buzzerP1Id && !!gameState.buzzerP2Id || isTimeUp) ? 'bg-slate-300 text-slate-500 opacity-50 border-4 border-white' : 'bg-rose-600 text-white animate-pulse border-4 border-rose-400'
           }`}
         >
-          {buzzerRank ? 'ĐÃ NHẤN' : 'NHẤN CHUÔNG!'}
+          {buzzerRank ? 'ĐÃ NHẤN' : 'BẤM CHUÔNG!'}
         </button>
 
         {buzzerRank && (

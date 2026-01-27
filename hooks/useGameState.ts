@@ -32,10 +32,10 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         .from('matches')
         .select(`*, questions(*)`)
         .eq('code', initialCode)
-        .maybeSingle();
+        .single();
 
       if (matchError || !match) {
-        console.error("Match not found or error:", initialCode, matchError);
+        console.error("Match fetch error:", matchError);
         isFetching.current = false;
         return;
       }
@@ -62,7 +62,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         buzzerP2Id: match.buzzer_p2_id
       });
     } catch (e) {
-      console.error("Supabase request failed:", e);
+      console.error("Critical State Error:", e);
     } finally {
       isFetching.current = false;
     }
@@ -73,40 +73,44 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   }, [fetchState]);
 
   useEffect(() => {
-    if (!initialCode) return;
+    if (!matchId) return;
 
-    // Lắng nghe thay đổi toàn cục cho match này
+    // Chỉ đăng ký Realtime sau khi đã có matchId
     const channel = supabase
-      .channel(`sync_all_${initialCode}`)
+      .channel(`sync_match_${matchId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'matches', 
-        filter: `code=eq.${initialCode}` 
-      }, () => {
+        filter: `id=eq.${matchId}` 
+      }, (payload) => {
+        console.log("Realtime Match Update:", payload);
         fetchState();
       })
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'players'
-      }, (payload: any) => {
-        // Chỉ fetch lại nếu player thuộc match hiện tại (kiểm tra sơ bộ matchId nếu đã có)
+        table: 'players',
+        filter: `match_id=eq.${matchId}`
+      }, () => {
         fetchState();
       })
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
-        table: 'responses'
+        table: 'responses',
+        filter: `match_id=eq.${matchId}`
       }, () => {
         window.dispatchEvent(new CustomEvent('sync_responses'));
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Supabase Subscription Status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [initialCode, fetchState]);
+  }, [matchId, fetchState]);
 
   const broadcastState = useCallback(async (newState: GameState) => {
     if (!matchId) return;
