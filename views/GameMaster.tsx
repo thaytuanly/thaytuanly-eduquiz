@@ -68,49 +68,58 @@ const GameMaster: React.FC = () => {
   };
 
   const jumpToQuestion = async (index: number) => {
-    if (!matchId) return;
+    if (!matchId) {
+      alert("Hệ thống chưa kết nối xong, hãy thử lại sau vài giây.");
+      return;
+    }
     
     try {
+      let updateData: any = {};
+      
       if (index === -1) {
-        await supabase.from('matches').update({ 
+        updateData = { 
           status: GameStatus.LOBBY,
           current_question_index: -1,
           question_started_at: null,
           buzzer_p1_id: null,
           buzzer_p2_id: null
-        }).eq('id', matchId);
-        await refresh(); // Cập nhật ngay lập tức
-        return;
+        };
+      } else {
+        if (!gameState || index < 0 || index >= gameState.questions.length) return;
+        const nextQ = gameState.questions[index];
+        updateData = { 
+          buzzer_p1_id: null, 
+          buzzer_t1: null, 
+          buzzer_p2_id: null, 
+          buzzer_t2: null,
+          status: GameStatus.QUESTION_ACTIVE,
+          current_question_index: index,
+          timer: nextQ.timeLimit,
+          question_started_at: new Date().toISOString()
+        };
       }
 
-      if (!gameState || index < 0 || index >= gameState.questions.length) return;
-      const nextQ = gameState.questions[index];
-      
-      const { error } = await supabase.from('matches').update({ 
-        buzzer_p1_id: null, 
-        buzzer_t1: null, 
-        buzzer_p2_id: null, 
-        buzzer_t2: null,
-        status: GameStatus.QUESTION_ACTIVE,
-        current_question_index: index,
-        timer: nextQ.timeLimit,
-        question_started_at: new Date().toISOString()
-      }).eq('id', matchId);
+      const { error } = await supabase.from('matches').update(updateData).eq('id', matchId);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('question_started_at')) {
+          throw new Error("Cơ sở dữ liệu thiếu cột 'question_started_at'. Vui lòng sao chép và chạy lại file database.sql trong SQL Editor của Supabase.");
+        }
+        throw error;
+      }
       
-      await refresh(); // Force refresh để UI Manager nhận lệnh ngay
+      await refresh();
       setResponses([]);
-      (window as any).questionStartTime = Date.now();
-    } catch (err) {
+    } catch (err: any) {
       alert("Lỗi điều khiển: " + err.message);
+      console.error(err);
     }
   };
 
   const resetCurrentResponses = async () => {
     if (!gameState || gameState.currentQuestionIndex < 0) return;
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
-    if (window.confirm("Xóa toàn bộ đáp án câu này?")) {
+    if (window.confirm("Xóa toàn bộ đáp án của câu hỏi này?")) {
       await supabase.from('responses').delete().eq('question_id', currentQ.id);
       setResponses([]);
     }
@@ -129,19 +138,20 @@ const GameMaster: React.FC = () => {
 
   const updatePlayerScore = async (playerId: string, newScore: number) => {
     await supabase.from('players').update({ score: newScore }).eq('id', playerId);
-    // Realtime sẽ tự update bảng điểm
   };
 
-  if (!gameState) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black text-xl gap-4">
-    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-    ĐANG KẾT NỐI HỆ THỐNG...
-  </div>;
+  if (!gameState) return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black text-xl gap-6">
+      <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      <p className="animate-pulse">ĐANG KẾT NỐI HỆ THỐNG...</p>
+    </div>
+  );
 
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex overflow-hidden font-inter">
-      {/* Sidebar chọn câu hỏi - Đã fix logic click */}
+      {/* Sidebar chọn câu hỏi */}
       <div className="w-24 bg-slate-900 border-r border-white/5 flex flex-col items-center py-6 gap-3 overflow-y-auto shrink-0 scrollbar-hide">
         <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-center">BẮT ĐẦU</span>
         <button

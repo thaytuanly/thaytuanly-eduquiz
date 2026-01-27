@@ -32,10 +32,16 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         .from('matches')
         .select(`*, questions(*)`)
         .eq('code', initialCode)
-        .single();
+        .maybeSingle();
 
-      if (matchError || !match) {
-        console.error("Match fetch error:", matchError);
+      if (matchError) {
+        console.error("Fetch State Error:", matchError);
+        isFetching.current = false;
+        return;
+      }
+
+      if (!match) {
+        console.warn("No match found for code:", initialCode);
         isFetching.current = false;
         return;
       }
@@ -75,26 +81,20 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   useEffect(() => {
     if (!matchId) return;
 
-    // Chỉ đăng ký Realtime sau khi đã có matchId
     const channel = supabase
-      .channel(`sync_match_${matchId}`)
+      .channel(`game_room_${matchId}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
-      }, (payload) => {
-        console.log("Realtime Match Update:", payload);
-        fetchState();
-      })
+      }, () => fetchState())
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'players',
         filter: `match_id=eq.${matchId}`
-      }, () => {
-        fetchState();
-      })
+      }, () => fetchState())
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
@@ -103,9 +103,7 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
       }, () => {
         window.dispatchEvent(new CustomEvent('sync_responses'));
       })
-      .subscribe((status) => {
-        console.log("Supabase Subscription Status:", status);
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
