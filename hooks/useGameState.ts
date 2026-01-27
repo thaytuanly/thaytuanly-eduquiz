@@ -65,21 +65,26 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   useEffect(() => {
     if (!initialCode || !matchId) return;
 
-    const matchChannel = supabase
-      .channel(`match_sync_${matchId}`)
+    // Lắng nghe tất cả các thay đổi của trận đấu
+    const channel = supabase
+      .channel(`game_realtime_${matchId}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'matches', 
         filter: `id=eq.${matchId}` 
       }, (payload) => {
+        // Cập nhật state ngay lập tức cho các trường nhanh (timer, status)
         setGameState(prev => {
           if (!prev) return null;
-          // CỰC KỲ QUAN TRỌNG: Mapping snake_case sang camelCase khi nhận payload realtime
+          // Nếu chuyển câu hỏi, ta nên fetch lại toàn bộ để đồng bộ danh sách câu hỏi nếu có thay đổi
+          if (payload.new.current_question_index !== prev.currentQuestionIndex) {
+             setTimeout(fetchState, 100); 
+          }
           return {
             ...prev,
             status: payload.new.status,
-            currentQuestionIndex: payload.new.current_question_index, 
+            currentQuestionIndex: payload.new.current_question_index,
             timer: payload.new.timer,
             activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
             buzzerP1Id: payload.new.buzzer_p1_id,
@@ -92,9 +97,9 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         schema: 'public', 
         table: 'players', 
         filter: `match_id=eq.${matchId}` 
-      }, async () => {
-        const { data } = await supabase.from('players').select('*').eq('match_id', matchId).order('created_at', { ascending: true });
-        setGameState(prev => prev ? { ...prev, players: data || [] } : null);
+      }, () => {
+        // Tải lại danh sách người chơi khi có thay đổi (điểm số, người mới vào)
+        fetchState();
       })
       .on('postgres_changes', {
         event: '*',
@@ -102,14 +107,14 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         table: 'questions',
         filter: `match_id=eq.${matchId}`
       }, () => {
-        fetchState(); // Tải lại câu hỏi khi Manager cập nhật đề
+        fetchState();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(matchChannel);
+      supabase.removeChannel(channel);
     };
-  }, [initialCode, matchId]);
+  }, [initialCode, matchId, fetchState]);
 
   const broadcastState = useCallback(async (newState: GameState) => {
     if (!matchId) return;
@@ -128,5 +133,5 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     }
   }, [matchId]);
 
-  return { gameState, broadcastState, matchId };
+  return { gameState, broadcastState, matchId, refresh: fetchState };
 };
