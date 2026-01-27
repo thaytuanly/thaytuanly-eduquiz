@@ -35,10 +35,11 @@ CREATE TABLE IF NOT EXISTS players (
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   score INT DEFAULT 0,
+  buzzer_time BIGINT, -- Lưu timestamp ms lúc bấm chuông
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. BẢNG MỚI: Lưu chi tiết câu trả lời (History)
+-- 4. Lưu chi tiết câu trả lời
 CREATE TABLE IF NOT EXISTS responses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID REFERENCES matches(id) ON DELETE CASCADE,
@@ -46,10 +47,10 @@ CREATE TABLE IF NOT EXISTS responses (
   player_id UUID REFERENCES players(id) ON DELETE CASCADE,
   answer TEXT,
   is_correct BOOLEAN,
-  response_time INT, -- ms
+  response_time INT,
   points_earned INT DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(player_id, question_id) -- Mỗi người chỉ được trả lời 1 lần cho 1 câu
+  UNIQUE(player_id, question_id)
 );
 
 -- 5. Mở quyền truy cập

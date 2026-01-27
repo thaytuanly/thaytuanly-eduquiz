@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGameState } from '../hooks/useGameState';
 import { supabase } from '../lib/supabase';
@@ -12,7 +12,8 @@ const PlayerView: React.FC = () => {
   const [joined, setJoined] = useState(false);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const { gameState, matchId } = useGameState('PLAYER', routeCode);
-  const [answer, setAnswer] = useState('');
+  
+  const [localAnswer, setLocalAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +27,6 @@ const PlayerView: React.FC = () => {
     }
   }, [routeCode]);
 
-  // Kiểm tra xem đã trả lời câu hỏi hiện tại chưa (Khi reconnect)
   useEffect(() => {
     if (joined && myPlayerId && gameState?.currentQuestionIndex !== undefined) {
       checkExistingResponse();
@@ -37,140 +37,157 @@ const PlayerView: React.FC = () => {
     if (!gameState?.questions || gameState.currentQuestionIndex < 0) return;
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
     if (!currentQ) return;
-
-    const { data } = await supabase
-      .from('responses')
-      .select('answer')
-      .eq('player_id', myPlayerId)
-      .eq('question_id', currentQ.id)
-      .single();
-
-    if (data) {
-      setAnswer(data.answer);
-      setSubmitted(true);
-    } else {
-      setSubmitted(false);
-      setAnswer('');
-    }
+    const { data } = await supabase.from('responses').select('answer').eq('player_id', myPlayerId).eq('question_id', currentQ.id).single();
+    if (data) { setLocalAnswer(data.answer); setSubmitted(true); } 
+    else { setSubmitted(false); setLocalAnswer(''); }
   };
 
   const joinGame = async () => {
     if (!routeCode || !name || !matchId) return;
     setLoading(true);
     const { data, error } = await supabase.from('players').insert([{ match_id: matchId, name: name, score: 0 }]).select().single();
-    if (error) {
-      alert("Lỗi tham gia!");
-      setLoading(false);
-      return;
-    }
-    setMyPlayerId(data.id);
-    setJoined(true);
+    if (error) { alert("Lỗi tham gia!"); setLoading(false); return; }
+    setMyPlayerId(data.id); setJoined(true);
     localStorage.setItem(`eduquiz_player_id_${routeCode}`, data.id);
     localStorage.setItem(`eduquiz_player_name_${routeCode}`, name);
     setLoading(false);
   };
 
-  const handleAnswerSubmit = async (value: string) => {
-    if (!gameState || !myPlayerId || submitted || !matchId) return;
+  const handleConfirmAnswer = async () => {
+    if (!gameState || !myPlayerId || submitted || !matchId || !localAnswer) return;
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
-    if (!currentQ) return;
-
     const responseTime = Date.now() - (window as any).questionStartTime;
-    const isCorrect = value.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
+    const isCorrect = localAnswer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
     let points = isCorrect ? currentQ.points : 0;
     
-    // Thưởng tốc độ
-    if (isCorrect && responseTime < (currentQ.timeLimit * 1000)) {
-       points += Math.floor(((currentQ.timeLimit * 1000 - responseTime) / 1000) * 0.1);
-    }
-
     setSubmitted(true);
-    setAnswer(value);
-
-    // 1. Lưu vào lịch sử responses
     await supabase.from('responses').upsert({
-      match_id: matchId,
-      player_id: myPlayerId,
-      question_id: currentQ.id,
-      answer: value,
-      is_correct: isCorrect,
-      response_time: responseTime,
-      points_earned: points
+      match_id: matchId, player_id: myPlayerId, question_id: currentQ.id,
+      answer: localAnswer, is_correct: isCorrect, response_time: responseTime, points_earned: points
     });
-
-    // 2. Cập nhật tổng điểm trong bảng players
     const { data: p } = await supabase.from('players').select('score').eq('id', myPlayerId).single();
     await supabase.from('players').update({ score: (p?.score || 0) + points }).eq('id', myPlayerId);
   };
+
+  const handleBuzzer = async () => {
+    if (!gameState || !myPlayerId) return;
+    const myData = gameState.players.find(p => p.id === myPlayerId);
+    if (myData?.buzzer_time) return; // Đã bấm rồi
+
+    await supabase.from('players').update({ buzzer_time: Date.now() }).eq('id', myPlayerId);
+  };
+
+  const buzzerRank = useMemo(() => {
+    if (!gameState || !myPlayerId) return null;
+    const myData = gameState.players.find(p => p.id === myPlayerId);
+    if (!myData?.buzzer_time) return null;
+
+    const sorted = gameState.players
+      .filter(p => !!p.buzzer_time)
+      .sort((a, b) => Number(a.buzzer_time) - Number(b.buzzer_time));
+    
+    return sorted.findIndex(p => p.id === myPlayerId) + 1;
+  }, [gameState?.players, myPlayerId]);
 
   if (!joined) {
     return (
       <div className="min-h-screen bg-indigo-600 flex items-center justify-center p-6">
         <div className="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-md">
           <h1 className="text-3xl font-black text-center mb-8">EduQuiz <span className="text-indigo-600">Online</span></h1>
-          <div className="space-y-4">
-            <input placeholder="Nhập tên..." value={name} onChange={e => setName(e.target.value)} className="w-full p-4 border-2 rounded-2xl font-bold" />
-            <button onClick={joinGame} disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xl shadow-lg transition">
-              {loading ? 'ĐANG VÀO...' : 'VÀO THI ĐẤU'}
-            </button>
-          </div>
+          <input placeholder="Nhập tên..." value={name} onChange={e => setName(e.target.value)} className="w-full p-4 border-2 rounded-2xl font-bold mb-4" />
+          <button onClick={joinGame} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xl shadow-lg">VÀO THI ĐẤU</button>
         </div>
       </div>
     );
   }
 
   if (!gameState) return <div className="min-h-screen flex items-center justify-center font-black text-indigo-600">ĐANG TẢI...</div>;
-
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
   const myData = gameState.players.find(p => p.id === myPlayerId);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col pb-32">
       <header className="bg-white px-6 py-4 shadow-sm flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black">{name[0]?.toUpperCase()}</div>
-          <span className="font-black text-slate-900">{name}</span>
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black">{name[0]}</div>
+          <span className="font-bold truncate max-w-[100px]">{name}</span>
         </div>
         <div className="text-right">
-          <span className="text-2xl font-black text-indigo-600">{myData?.score || 0}</span>
-          <p className="text-[10px] text-slate-400 font-bold uppercase">Điểm</p>
+          <span className="text-xl font-black text-indigo-600">{myData?.score || 0}</span>
+          <p className="text-[8px] text-slate-400 font-bold uppercase">Điểm</p>
         </div>
       </header>
 
-      <main className="flex-1 p-6 flex flex-col justify-center max-w-lg mx-auto w-full">
-        {gameState.status === GameStatus.LOBBY && (
-          <div className="text-center bg-white p-12 rounded-[48px] shadow-sm border border-slate-100">
-             <div className="text-7xl mb-6">🏁</div>
-             <h2 className="text-2xl font-black mb-2">Đang chờ bắt đầu...</h2>
-          </div>
-        )}
-
+      <main className="flex-1 flex flex-col">
         {gameState.status === GameStatus.QUESTION_ACTIVE && currentQ && (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-extrabold text-slate-800 leading-tight mb-6">{currentQ.content}</h2>
+          <div className="flex flex-col flex-1">
+            <div className="h-[30vh] bg-black/5 border-b">
               <MediaRenderer url={currentQ.mediaUrl} type={currentQ.mediaType} />
             </div>
-            {currentQ.type === QuestionType.MCQ && !submitted && (
-              <div className="grid gap-4">
-                {currentQ.options?.map((opt, i) => (
-                  <button key={i} onClick={() => handleAnswerSubmit(opt)} className="p-5 text-left bg-white border-2 border-slate-100 rounded-3xl font-bold flex items-center gap-4 active:scale-95 transition-all">
-                    <span className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black">{String.fromCharCode(65 + i)}</span>
-                    <span>{opt}</span>
+            
+            <div className="p-6 space-y-6">
+              <h2 className="text-xl font-bold text-slate-800 text-center">{currentQ.content}</h2>
+              
+              {!submitted ? (
+                <div className="space-y-4">
+                  {currentQ.type === QuestionType.MCQ && (
+                    <div className="grid grid-cols-1 gap-3">
+                      {currentQ.options?.map((opt, i) => (
+                        <button 
+                          key={i} 
+                          onClick={() => setLocalAnswer(opt)}
+                          className={`p-4 text-left border-2 rounded-2xl font-bold transition-all ${localAnswer === opt ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-white'}`}
+                        >
+                          <span className="mr-3 opacity-30">{String.fromCharCode(65+i)}.</span> {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {currentQ.type === QuestionType.SHORT_ANSWER && (
+                    <input 
+                      value={localAnswer} 
+                      onChange={e => setLocalAnswer(e.target.value)} 
+                      className="w-full p-4 border-2 rounded-2xl font-bold text-center"
+                      placeholder="Nhập câu trả lời..."
+                    />
+                  )}
+
+                  <button 
+                    onClick={handleConfirmAnswer}
+                    disabled={!localAnswer}
+                    className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg disabled:opacity-50"
+                  >
+                    XÁC NHẬN ĐÁP ÁN
                   </button>
-                ))}
-              </div>
-            )}
-            {submitted && (
-              <div className="text-center py-16 bg-white rounded-[40px] border border-emerald-100 shadow-sm">
-                 <div className="text-6xl mb-6">✅</div>
-                 <h3 className="text-2xl font-black text-slate-800">Đã gửi đáp án</h3>
-                 <p className="text-slate-400 font-medium">Bạn đã chọn: <span className="text-indigo-600 font-bold">{answer}</span></p>
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="bg-white p-8 rounded-3xl text-center border-2 border-emerald-100">
+                  <p className="text-slate-400 font-bold uppercase text-[10px] mb-2">Đã nộp</p>
+                  <p className="text-2xl font-black text-indigo-600">{localAnswer}</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
+
+      {/* Buzzer Area */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t flex items-center justify-between gap-4">
+        <button 
+          onClick={handleBuzzer}
+          disabled={!!buzzerRank || gameState.status !== GameStatus.QUESTION_ACTIVE}
+          className={`flex-1 py-4 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-95 ${buzzerRank ? 'bg-slate-200 text-slate-400 shadow-none' : 'bg-rose-600 text-white active:bg-rose-700'}`}
+        >
+          {buzzerRank ? 'ĐÃ BẤM CHUÔNG' : 'BẤM CHUÔNG!'}
+        </button>
+        {buzzerRank && (
+          <div className="w-20 h-16 bg-yellow-400 rounded-2xl flex flex-col items-center justify-center text-indigo-950 shadow-lg">
+            <span className="text-[8px] font-black uppercase">Hạng</span>
+            <span className="text-2xl font-black">#{buzzerRank}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

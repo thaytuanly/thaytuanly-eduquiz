@@ -12,22 +12,26 @@ export const MediaRenderer: React.FC<MediaRendererProps> = ({ url, type }) => {
 
   if (type === 'image') {
     return (
-      <div className="w-full max-w-2xl mx-auto my-4 rounded-xl overflow-hidden shadow-lg border-4 border-white">
-        <img src={formatDriveUrl(url)} alt="Question Content" className="w-full h-auto object-contain bg-gray-100" />
+      <div className="w-full h-full flex items-center justify-center p-2">
+        <img 
+          src={formatDriveUrl(url)} 
+          alt="Content" 
+          className="max-w-full max-h-full object-contain rounded-lg shadow-sm" 
+        />
       </div>
     );
   }
 
   if (type === 'video') {
     const videoId = getYouTubeId(url);
-    if (!videoId) return <p className="text-red-500">Link video không hợp lệ</p>;
+    if (!videoId) return <p className="text-red-500 p-4">Link video lỗi</p>;
     
     return (
-      <div className="w-full max-w-2xl mx-auto my-4 aspect-video rounded-xl overflow-hidden shadow-lg border-4 border-white">
+      <div className="w-full h-full bg-black rounded-lg overflow-hidden shadow-inner">
         <iframe
           className="w-full h-full"
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
-          title="YouTube video player"
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0`}
+          title="YouTube video"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         ></iframe>
