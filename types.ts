@@ -9,12 +9,12 @@ export interface Question {
   id: string;
   type: QuestionType;
   content: string;
-  mediaUrl?: string; // Google Drive or YouTube
+  mediaUrl?: string;
   mediaType?: 'image' | 'video' | 'none';
-  options?: string[]; // For MCQ: [A, B, C, D]
+  options?: string[];
   correctAnswer: string;
   points: number;
-  timeLimit: number; // Seconds for this specific question
+  timeLimit: number;
 }
 
 export interface Player {
@@ -22,8 +22,8 @@ export interface Player {
   name: string;
   score: number;
   lastAnswer?: string;
-  responseTime?: number; // ms
-  buzzerTime?: number; // timestamp
+  responseTime?: number;
+  buzzerTime?: number;
   isReady: boolean;
 }
 
@@ -43,6 +43,8 @@ export interface GameState {
   timer: number;
   maxTime: number;
   activeBuzzerPlayerId: string | null;
+  buzzerP1Id: string | null;
+  buzzerP2Id: string | null;
 }
 
 export interface BroadcastMessage {

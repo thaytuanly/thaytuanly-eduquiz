@@ -7,9 +7,6 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
 
-  const isConfigured = !!supabase;
-
-  // 1. Tải dữ liệu ban đầu
   const fetchState = useCallback(async () => {
     if (!initialCode) return;
 
@@ -20,12 +17,9 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         .eq('code', initialCode)
         .single();
 
-      if (matchError || !match) {
-        console.error("Error fetching match:", matchError);
-        return;
-      }
+      if (matchError || !match) return;
 
-      const { data: players, error: playersError } = await supabase
+      const { data: players } = await supabase
         .from('players')
         .select('*')
         .eq('match_id', match.id)
@@ -41,7 +35,9 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         players: players || [],
         timer: match.timer || 0,
         maxTime: 0,
-        activeBuzzerPlayerId: match.active_buzzer_player_id
+        activeBuzzerPlayerId: match.active_buzzer_player_id,
+        buzzerP1Id: match.buzzer_p1_id,
+        buzzerP2Id: match.buzzer_p2_id
       });
     } catch (e) {
       console.error("Supabase request failed:", e);
@@ -52,7 +48,6 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     fetchState();
   }, [fetchState]);
 
-  // 2. Lắng nghe Realtime
   useEffect(() => {
     if (!initialCode || !matchId) return;
 
@@ -69,7 +64,9 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
           status: payload.new.status,
           currentQuestionIndex: payload.new.current_question_index,
           timer: payload.new.timer,
-          activeBuzzerPlayerId: payload.new.active_buzzer_player_id
+          activeBuzzerPlayerId: payload.new.active_buzzer_player_id,
+          buzzerP1Id: payload.new.buzzer_p1_id,
+          buzzerP2Id: payload.new.buzzer_p2_id
         } : null);
       })
       .on('postgres_changes', { 
@@ -88,18 +85,17 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
     };
   }, [initialCode, matchId]);
 
-  // 3. Hàm cập nhật trạng thái (Dành cho Manager)
   const broadcastState = useCallback(async (newState: GameState) => {
     if (!matchId) return;
-
     try {
       await supabase.from('matches').update({
         status: newState.status,
         current_question_index: newState.currentQuestionIndex,
         timer: newState.timer,
-        active_buzzer_player_id: newState.activeBuzzerPlayerId
+        active_buzzer_player_id: newState.activeBuzzerPlayerId,
+        buzzer_p1_id: newState.buzzerP1Id,
+        buzzer_p2_id: newState.buzzerP2Id
       }).eq('id', matchId);
-
       setGameState(newState);
     } catch (e) {
       console.error("Failed to broadcast state:", e);
