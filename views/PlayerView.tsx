@@ -210,6 +210,9 @@ const PlayerView: React.FC = () => {
           {buzzerRank ? `ĐÃ NHẤN #${buzzerRank}` : 'BẤM CHUÔNG!'}
         </button>
       </div>
+      <footer className="mt-20 text-slate-400 font-medium">
+        &copy; 2026 Thầy Tuấn Lý bằng sự hỗ trợ của Google AI Studio.
+      </footer>
     </div>
   );
 };
