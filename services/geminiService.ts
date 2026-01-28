@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
   // Sử dụng trực tiếp process.env.API_KEY theo hướng dẫn
-  const ai = new GoogleGenAI({ apiKey: AIzaSyCjlciftjjQ-4rwsnX6490alZ_6MibAR2g });
+  const ai = new GoogleGenAI({ AIzaSyCjlciftjjQ-4rwsnX6490alZ_6MibAR2g });
   
   try {
     const response = await ai.models.generateContent({
