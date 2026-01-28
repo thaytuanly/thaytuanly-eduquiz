@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = AIzaSyBGmLVw_aNWovLrUh35qzG3s4Ab_GiYdNs;
   if (!apiKey) {
     throw new Error("Không tìm thấy API Key. Hãy đảm bảo môi trường đã được cấu hình.");
   }
