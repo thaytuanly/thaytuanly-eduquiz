@@ -2,15 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
-  // Lấy API Key từ biến môi trường theo yêu cầu
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey || apiKey === "undefined") {
-    throw new Error("Không tìm thấy API_KEY trong cấu hình hệ thống. Vui lòng kiểm tra lại thiết lập biến môi trường (Environment Variables).");
-  }
-
-  // Khởi tạo instance mới ngay trước khi gọi API để đảm bảo Key luôn mới nhất
-  const ai = new GoogleGenAI({ apiKey });
+  // Sử dụng trực tiếp process.env.API_KEY theo hướng dẫn
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
@@ -28,14 +21,17 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
           items: {
             type: Type.OBJECT,
             properties: {
-              type: { type: Type.STRING, description: 'MCQ, SHORT_ANSWER, hoặc BUZZER' },
+              type: { 
+                type: Type.STRING, 
+                description: 'Giá trị phải là MCQ, SHORT_ANSWER, hoặc BUZZER' 
+              },
               content: { type: Type.STRING, description: 'Nội dung câu hỏi' },
               options: { 
                 type: Type.ARRAY, 
                 items: { type: Type.STRING },
-                description: 'Cung cấp mảng 4 lựa chọn nếu là MCQ'
+                description: 'Mảng 4 lựa chọn nếu là MCQ, rỗng nếu là loại khác'
               },
-              correctAnswer: { type: Type.STRING, description: 'Đáp án đúng' },
+              correctAnswer: { type: Type.STRING, description: 'Đáp án chính xác' },
               points: { type: Type.NUMBER, description: 'Điểm số (10, 20 hoặc 30)' }
             },
             required: ['type', 'content', 'correctAnswer', 'points']
@@ -50,9 +46,10 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
     return JSON.parse(text);
   } catch (error: any) {
     console.error("Gemini AI Error:", error);
-    if (error.message?.includes("API key")) {
-      throw new Error("API Key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại Key: " + apiKey.substring(0, 5) + "...");
+    // Cung cấp thông báo lỗi thân thiện hơn cho người dùng
+    if (error.message?.includes("API_KEY") || error.message?.includes("API key")) {
+      throw new Error("Không thể kết nối với AI. Vui lòng kiểm tra xem API_KEY đã được cấu hình đúng trong Environment Variables chưa.");
     }
-    throw new Error(error.message || "Lỗi tạo câu hỏi từ AI");
+    throw new Error("Lỗi khi tạo câu hỏi bằng AI: " + (error.message || "Vui lòng thử lại sau."));
   }
 };

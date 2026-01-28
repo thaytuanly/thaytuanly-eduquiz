@@ -78,7 +78,7 @@ const GameMaster: React.FC = () => {
 
   const clearCurrentResponses = async () => {
     if (!matchId || !gameState || gameState.currentQuestionIndex < 0) return;
-    if (!window.confirm("Xóa toàn bộ đáp án của thí sinh ở câu này để họ nộp lại?")) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ đáp án của thí sinh ở câu này?")) return;
     
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
     await supabase.from('responses').delete().eq('question_id', currentQ.id);
@@ -129,28 +129,31 @@ const GameMaster: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="bg-indigo-600 px-6 py-2 rounded-xl font-black text-2xl font-mono">{gameState.matchCode}</div>
             
-            {/* Nhóm các nút điều khiển quan trọng */}
+            {/* Nhóm điều khiển tập trung */}
             {gameState.currentQuestionIndex >= 0 && (
-              <div className="flex bg-white/5 p-1.5 rounded-2xl gap-2 border border-white/5">
-                 <button 
-                    onClick={revealAnswerAndScore} 
-                    disabled={gameState.isAnswerRevealed}
-                    className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all flex items-center gap-2 ${gameState.isAnswerRevealed ? 'bg-slate-800 text-slate-500' : 'bg-yellow-500 text-black hover:scale-105 shadow-lg shadow-yellow-500/20'}`}
-                  >
-                    ✨ {gameState.isAnswerRevealed ? 'ĐÃ HIỆN ĐÁP ÁN' : 'HIỆN ĐÁP ÁN & CỘNG ĐIỂM'}
-                  </button>
-                  <button 
-                    onClick={clearCurrentResponses}
-                    className="px-4 py-2 rounded-xl text-[11px] font-black bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white transition-all flex items-center gap-2"
-                  >
-                    🧹 XÓA ĐÁP ÁN
-                  </button>
-                  <button 
-                    onClick={resetBuzzers}
-                    className="px-4 py-2 rounded-xl text-[11px] font-black bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
-                  >
-                    🔔 RESET CHUÔNG
-                  </button>
+              <div className="flex bg-slate-800/50 p-1 rounded-2xl gap-1.5 border border-white/5">
+                <button 
+                  onClick={revealAnswerAndScore} 
+                  disabled={gameState.isAnswerRevealed}
+                  className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all flex items-center gap-2 ${gameState.isAnswerRevealed ? 'bg-slate-700 text-slate-500' : 'bg-yellow-500 text-black hover:scale-105 shadow-lg shadow-yellow-500/20'}`}
+                >
+                  ✨ {gameState.isAnswerRevealed ? 'ĐÃ HIỆN ĐÁP ÁN' : 'HIỆN ĐÁP ÁN & CỘNG ĐIỂM'}
+                </button>
+                <div className="w-px h-6 bg-white/10 my-auto mx-1"></div>
+                <button 
+                  onClick={clearCurrentResponses}
+                  className="px-4 py-2 rounded-xl text-[11px] font-black bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white transition-all flex items-center gap-2"
+                  title="Cho phép thí sinh nộp lại đáp án"
+                >
+                  🧹 XÓA ĐÁP ÁN
+                </button>
+                <button 
+                  onClick={resetBuzzers}
+                  className="px-4 py-2 rounded-xl text-[11px] font-black bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
+                  title="Xóa danh sách người đã nhấn chuông"
+                >
+                  🔔 RESET CHUÔNG
+                </button>
               </div>
             )}
           </div>
@@ -184,7 +187,6 @@ const GameMaster: React.FC = () => {
                       </div>
                       <h2 className="text-4xl font-extrabold leading-tight mb-10 pr-24">{currentQ.content}</h2>
                       
-                      {/* Trạng thái chuông hạng 1 & 2 */}
                       <div className="flex gap-4 mb-10">
                          <div className={`p-6 rounded-[32px] border flex-1 text-center transition-all duration-500 ${gameState?.buzzerP1Id ? 'bg-emerald-500/20 border-emerald-500/40 scale-105 shadow-xl' : 'bg-white/5 border-white/5 opacity-50'}`}>
                             <p className="text-[10px] font-black uppercase text-emerald-400 mb-1">🔔 Hạng 1</p>
@@ -212,7 +214,6 @@ const GameMaster: React.FC = () => {
             </div>
           </div>
 
-          {/* Bảng xếp hạng bên phải */}
           <div className="flex flex-col min-h-0">
             <h3 className="font-black text-[10px] uppercase text-slate-500 mb-4 border-b border-white/5 pb-2 tracking-widest">Xếp hạng & Thí sinh</h3>
             <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
