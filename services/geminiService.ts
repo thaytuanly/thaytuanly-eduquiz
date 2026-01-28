@@ -1,3 +1,4 @@
+"use server"; // <--- QUAN TRỌNG: Dòng này bắt buộc code chạy trên Server
 
 import { GoogleGenAI, Type } from "@google/genai";
 
