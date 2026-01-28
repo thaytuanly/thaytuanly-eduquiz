@@ -78,7 +78,7 @@ const GameMaster: React.FC = () => {
 
   const clearCurrentResponses = async () => {
     if (!matchId || !gameState || gameState.currentQuestionIndex < 0) return;
-    if (!window.confirm("Bạn có chắc chắn muốn XÓA TOÀN BỘ đáp án đã nộp của thí sinh ở câu này không?")) return;
+    if (!window.confirm("Xóa toàn bộ đáp án của thí sinh ở câu này để họ nộp lại?")) return;
     
     const currentQ = gameState.questions[gameState.currentQuestionIndex];
     await supabase.from('responses').delete().eq('question_id', currentQ.id);
@@ -89,10 +89,7 @@ const GameMaster: React.FC = () => {
     if (!matchId || !gameState || gameState.currentQuestionIndex < 0 || gameState.isAnswerRevealed || isProcessing) return;
     setIsProcessing(true);
     try {
-      // 1. Cập nhật trạng thái hiển thị đáp án
       await supabase.from('matches').update({ is_answer_revealed: true, status: GameStatus.SHOWING_RESULTS }).eq('id', matchId);
-      
-      // 2. Cộng điểm cho người chơi dựa trên các response đúng
       for (const resp of syncedResponses) {
         if (resp.is_correct && resp.points_earned > 0) {
           const player = gameState.players.find(p => p.id === resp.player_id);
@@ -110,18 +107,18 @@ const GameMaster: React.FC = () => {
     await supabase.from('players').update({ score: newScore }).eq('id', playerId);
   };
 
-  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">ĐANG KẾT NỐI...</div>;
+  if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black">ĐANG KẾT NỐI...</div>;
 
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex overflow-hidden font-inter">
-      {/* Cột danh sách câu hỏi */}
+      {/* Sidebar chọn câu hỏi */}
       <div className="w-24 bg-slate-900 border-r border-white/5 flex flex-col items-center py-6 gap-3 overflow-y-auto shrink-0 scrollbar-hide">
-        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-center">BẮT ĐẦU</span>
+        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-center">Home</span>
         <button onClick={() => jumpToQuestion(-1)} className={`w-14 h-14 rounded-2xl font-black transition-all flex items-center justify-center text-2xl ${gameState.currentQuestionIndex === -1 ? 'bg-indigo-600 text-white scale-110 shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>🏠</button>
         <div className="w-12 h-px bg-white/10 my-2"></div>
-        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-center">ĐỀ THI</span>
+        <span className="text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest text-center">Câu hỏi</span>
         {gameState.questions.map((_, idx) => (
           <button key={idx} onClick={() => jumpToQuestion(idx)} className={`w-14 h-14 rounded-2xl font-black transition-all shrink-0 text-lg ${gameState.currentQuestionIndex === idx ? 'bg-indigo-600 text-white scale-110 shadow-xl' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{idx + 1}</button>
         ))}
@@ -132,36 +129,37 @@ const GameMaster: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="bg-indigo-600 px-6 py-2 rounded-xl font-black text-2xl font-mono">{gameState.matchCode}</div>
             
-            <div className="flex bg-white/5 p-1 rounded-xl gap-1">
-               <button 
-                  onClick={revealAnswerAndScore} 
-                  disabled={gameState.isAnswerRevealed || gameState.currentQuestionIndex < 0}
-                  className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${gameState.isAnswerRevealed ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-yellow-500 text-black hover:scale-105 shadow-lg shadow-yellow-500/20'}`}
-                >
-                  {gameState.isAnswerRevealed ? 'ĐÃ HIỆN ĐÁP ÁN' : '✨ HIỆN ĐÁP ÁN & CỘNG ĐIỂM'}
-                </button>
-                <button 
-                  onClick={clearCurrentResponses}
-                  disabled={gameState.currentQuestionIndex < 0}
-                  className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white transition-all"
-                >
-                  🧹 XÓA ĐÁP ÁN
-                </button>
-                <button 
-                  onClick={resetBuzzers}
-                  disabled={gameState.currentQuestionIndex < 0}
-                  className="px-4 py-2 rounded-lg text-xs font-black bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all"
-                >
-                  🔔 RESET CHUÔNG
-                </button>
-            </div>
+            {/* Nhóm các nút điều khiển quan trọng */}
+            {gameState.currentQuestionIndex >= 0 && (
+              <div className="flex bg-white/5 p-1.5 rounded-2xl gap-2 border border-white/5">
+                 <button 
+                    onClick={revealAnswerAndScore} 
+                    disabled={gameState.isAnswerRevealed}
+                    className={`px-4 py-2 rounded-xl text-[11px] font-black transition-all flex items-center gap-2 ${gameState.isAnswerRevealed ? 'bg-slate-800 text-slate-500' : 'bg-yellow-500 text-black hover:scale-105 shadow-lg shadow-yellow-500/20'}`}
+                  >
+                    ✨ {gameState.isAnswerRevealed ? 'ĐÃ HIỆN ĐÁP ÁN' : 'HIỆN ĐÁP ÁN & CỘNG ĐIỂM'}
+                  </button>
+                  <button 
+                    onClick={clearCurrentResponses}
+                    className="px-4 py-2 rounded-xl text-[11px] font-black bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white transition-all flex items-center gap-2"
+                  >
+                    🧹 XÓA ĐÁP ÁN
+                  </button>
+                  <button 
+                    onClick={resetBuzzers}
+                    className="px-4 py-2 rounded-xl text-[11px] font-black bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
+                  >
+                    🔔 RESET CHUÔNG
+                  </button>
+              </div>
+            )}
           </div>
           <div className="flex gap-3">
-            <button onClick={() => navigate(`/manage/${code}`)} className="bg-slate-800 px-6 py-3 rounded-xl font-bold text-sm">SỬA ĐỀ</button>
+            <button onClick={() => navigate(`/manage/${code}`)} className="bg-slate-800 px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-700 transition">SỬA ĐỀ</button>
             <button 
               onClick={() => jumpToQuestion(gameState.currentQuestionIndex + 1)} 
               disabled={gameState.currentQuestionIndex >= gameState.questions.length - 1}
-              className="bg-emerald-600 px-8 py-3 rounded-xl font-black shadow-lg disabled:opacity-30"
+              className="bg-emerald-600 px-8 py-3 rounded-xl font-black shadow-lg hover:bg-emerald-500 transition active:scale-95 disabled:opacity-30 disabled:pointer-events-none"
             >
               TIẾP THEO →
             </button>
@@ -182,10 +180,11 @@ const GameMaster: React.FC = () => {
                         <div className={`text-8xl font-black font-mono tracking-tighter ${timeLeft < 10 ? 'text-rose-500 animate-pulse' : 'text-indigo-500'}`}>{timeLeft}</div>
                       </div>
                       <div className="mb-4">
-                        <span className="bg-white/10 text-indigo-300 px-4 py-1.5 rounded-full text-[10px] font-black uppercase">CÂU HỎI {gameState.currentQuestionIndex + 1}</span>
+                        <span className="bg-white/10 text-indigo-300 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">CÂU HỎI {gameState.currentQuestionIndex + 1}</span>
                       </div>
                       <h2 className="text-4xl font-extrabold leading-tight mb-10 pr-24">{currentQ.content}</h2>
                       
+                      {/* Trạng thái chuông hạng 1 & 2 */}
                       <div className="flex gap-4 mb-10">
                          <div className={`p-6 rounded-[32px] border flex-1 text-center transition-all duration-500 ${gameState?.buzzerP1Id ? 'bg-emerald-500/20 border-emerald-500/40 scale-105 shadow-xl' : 'bg-white/5 border-white/5 opacity-50'}`}>
                             <p className="text-[10px] font-black uppercase text-emerald-400 mb-1">🔔 Hạng 1</p>
@@ -207,19 +206,20 @@ const GameMaster: React.FC = () => {
                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-12 text-center">
                     <div className="text-9xl mb-8 opacity-10 animate-bounce">🏠</div>
                     <p className="font-black text-2xl uppercase text-white/20 tracking-tighter">Màn hình chờ</p>
-                    <p className="text-slate-500 mt-4 text-sm font-medium">Hiện có <span className="text-indigo-400 font-black">{gameState.players.length}</span> thí sinh.</p>
+                    <p className="text-slate-500 mt-4 text-sm font-medium">Đang có <span className="text-indigo-400 font-black">{gameState.players.length}</span> thí sinh sẵn sàng.</p>
                  </div>
                )}
             </div>
           </div>
 
+          {/* Bảng xếp hạng bên phải */}
           <div className="flex flex-col min-h-0">
-            <h3 className="font-black text-sm uppercase text-slate-500 mb-4 border-b border-white/5 pb-2">Xếp hạng & Đáp án</h3>
+            <h3 className="font-black text-[10px] uppercase text-slate-500 mb-4 border-b border-white/5 pb-2 tracking-widest">Xếp hạng & Thí sinh</h3>
             <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
               {gameState.players.sort((a,b) => b.score - a.score).map((p, idx) => {
                 const resp = syncedResponses.find(r => r.player_id === p.id);
                 return (
-                  <div key={p.id} className="bg-white/5 p-4 rounded-[28px] border border-white/5 transition-all">
+                  <div key={p.id} className="bg-white/5 p-4 rounded-[28px] border border-white/5 transition-all hover:bg-white/[0.08]">
                     <div className="flex justify-between items-center mb-2">
                       <div className="flex items-center gap-2 overflow-hidden">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 ${idx === 0 ? 'bg-yellow-400 text-indigo-950' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</div>

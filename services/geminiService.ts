@@ -1,13 +1,15 @@
-"use server"; // <--- QUAN TRỌNG: Dòng này bắt buộc code chạy trên Server
 
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
+  // Lấy API Key từ biến môi trường theo yêu cầu
   const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("Không tìm thấy API Key. Hãy đảm bảo môi trường đã được cấu hình.");
+  
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("Không tìm thấy API_KEY trong cấu hình hệ thống. Vui lòng kiểm tra lại thiết lập biến môi trường (Environment Variables).");
   }
 
+  // Khởi tạo instance mới ngay trước khi gọi API để đảm bảo Key luôn mới nhất
   const ai = new GoogleGenAI({ apiKey });
   
   try {
@@ -48,6 +50,9 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
     return JSON.parse(text);
   } catch (error: any) {
     console.error("Gemini AI Error:", error);
+    if (error.message?.includes("API key")) {
+      throw new Error("API Key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại Key: " + apiKey.substring(0, 5) + "...");
+    }
     throw new Error(error.message || "Lỗi tạo câu hỏi từ AI");
   }
 };
