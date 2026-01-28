@@ -56,10 +56,10 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         maxTime: 0,
         activeBuzzerPlayerId: match.active_buzzer_player_id,
         buzzerP1Id: match.buzzer_p1_id,
-        buzzerP2Id: match.buzzer_p2_id
+        buzzerP2Id: match.buzzer_p2_id,
+        isAnswerRevealed: match.is_answer_revealed || false
       }));
 
-      // Lấy responses cho câu hiện tại
       if (match.current_question_index >= 0) {
         const currentQ = match.questions.find((q: any) => q.sort_order === match.current_question_index) || match.questions[match.current_question_index];
         if (currentQ) {
@@ -98,10 +98,10 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
           currentQuestionIndex: updated.current_question_index,
           activeBuzzerPlayerId: updated.active_buzzer_player_id,
           buzzerP1Id: updated.buzzer_p1_id,
-          buzzerP2Id: updated.buzzer_p2_id
+          buzzerP2Id: updated.buzzer_p2_id,
+          isAnswerRevealed: updated.is_answer_revealed
         }) : null);
         
-        // Nếu chuyển câu, nạp lại state để lấy responses mới
         fetchState();
       })
       .on('postgres_changes', { 
@@ -116,7 +116,6 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
         table: 'responses',
         filter: `match_id=eq.${matchId}`
       }, (payload) => {
-        // Cập nhật responses ngay lập tức
         if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
           setResponses(prev => {
             const exists = prev.find(r => r.id === payload.new.id);
@@ -124,9 +123,8 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
             return [...prev, payload.new];
           });
         } else if (payload.eventType === 'DELETE') {
-          fetchState(); // Nạp lại nếu bị xóa
+          fetchState();
         }
-        window.dispatchEvent(new CustomEvent('sync_responses'));
       })
       .subscribe();
 

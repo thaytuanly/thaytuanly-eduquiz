@@ -45,6 +45,7 @@ export interface GameState {
   activeBuzzerPlayerId: string | null;
   buzzerP1Id: string | null;
   buzzerP2Id: string | null;
+  isAnswerRevealed: boolean;
 }
 
 export interface BroadcastMessage {
