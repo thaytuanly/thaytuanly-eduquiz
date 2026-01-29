@@ -125,7 +125,7 @@ const SpectatorView: React.FC = () => {
                      )}
                   </div>
 
-                  <h2 className="text-5xl font-black text-white leading-tight mb-12 drop-shadow-md">{currentQ.content}</h2>
+                  <h2 className="text-4xl font-black text-white leading-tight mb-12 drop-shadow-md">{currentQ.content}</h2>
                   
                   {currentQ.type === QuestionType.MCQ && (
                     <div className="grid grid-cols-2 gap-6">
