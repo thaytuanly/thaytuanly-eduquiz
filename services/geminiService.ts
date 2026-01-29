@@ -14,7 +14,7 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
   try {
     // Sử dụng model Flash bản ổn định (thư viện này tự xử lý việc map version)
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-2.0-flash",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
