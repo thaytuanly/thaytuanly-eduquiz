@@ -212,13 +212,14 @@ const PlayerView: React.FC = () => {
              <div className="text-8xl animate-bounce">🎮</div>
              <h2 className="text-3xl font-black text-slate-900 uppercase">Vui lòng chờ...</h2>
           </div>
-        </main>
+        )}
+      </main>
+
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-xl border-t flex items-center justify-between gap-6 z-40">
         <button onClick={handleBuzzer} disabled={!!buzzerRank || isTimeUp || gameState.status !== GameStatus.QUESTION_ACTIVE} className={`flex-1 py-6 rounded-[28px] font-black text-2xl transition-all active:scale-95 ${buzzerRank ? 'bg-slate-200 text-slate-400' : 'bg-rose-600 text-white shadow-xl shadow-rose-200'}`}>
           {buzzerRank ? `ĐÃ NHẤN #${buzzerRank}` : 'BẤM CHUÔNG!'}
         </button>
       </div>
-        )}
     </div>
   );
 };
