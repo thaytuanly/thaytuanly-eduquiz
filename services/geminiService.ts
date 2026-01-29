@@ -8,7 +8,7 @@ export const generateQuestionsAI = async (topic: string, count: number) => {
   
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `Hãy đóng vai một chuyên gia giáo dục. Tạo danh sách gồm ${count} câu hỏi thi đấu trí tuệ về chủ đề: "${topic}". 
       Yêu cầu:
       - Loại câu hỏi: MCQ (trắc nghiệm), SHORT_ANSWER (tự luận ngắn), BUZZER (câu hỏi bấm chuông).
