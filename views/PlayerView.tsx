@@ -212,6 +212,9 @@ const PlayerView: React.FC = () => {
              <div className="text-8xl animate-bounce">🎮</div>
              <h2 className="text-3xl font-black text-slate-900 uppercase">Vui lòng chờ...</h2>
           </div>
+            <footer className="mt-20 text-slate-400 font-medium">
+        &copy; 2026 Thầy Tuấn Lý với hỗ trợ của Google AI Studio.
+      </footer>
         )}
       </main>
 
