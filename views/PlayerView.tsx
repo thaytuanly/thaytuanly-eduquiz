@@ -163,7 +163,6 @@ const PlayerView: React.FC = () => {
               {!submitted && !isTimeUp && gameState.status === GameStatus.QUESTION_ACTIVE ? (
                 <div className="space-y-4">
                   {currentQ.type === QuestionType.BUZZER ? (
-                    /* Giao diện dành riêng cho câu hỏi Bấm chuông */
                     <div className="bg-white/50 border-4 border-dashed border-rose-200 p-10 rounded-[40px] text-center animate-pulse">
                       <div className="text-6xl mb-4">🔔</div>
                       <p className="text-rose-600 font-black text-xl uppercase leading-tight">Hãy nhanh tay bấm chuông bên dưới để giành quyền trả lời!</p>
@@ -181,7 +180,6 @@ const PlayerView: React.FC = () => {
                     <input value={localAnswer} onChange={e => setLocalAnswer(e.target.value)} className="w-full p-6 bg-white rounded-[24px] font-black text-xl text-center shadow-lg border-4 border-white focus:border-indigo-100 outline-none" placeholder="Gõ đáp án..." />
                   )}
                   
-                  {/* Chỉ hiện nút Gửi đáp án cho MCQ và Short Answer */}
                   {currentQ.type !== QuestionType.BUZZER && (
                     <button onClick={handleConfirmAnswer} disabled={!localAnswer || loading} className="w-full text-white py-5 rounded-[24px] font-black text-xl bg-emerald-500 shadow-xl disabled:opacity-50 transition active:scale-95">GỬI ĐÁP ÁN</button>
                   )}

@@ -29,7 +29,8 @@ const GameMaster: React.FC = () => {
         setTimeLeft(remaining);
 
         if (remaining <= 0) {
-          // Chỉ dừng timer cục bộ, không ép trạng thái match đổi trên server để tránh lỗi mất đồng bộ đáp án
+          // Chỉ dừng timer cục bộ, không ép trạng thái match đổi trên server
+          // Điều này giúp giữ nguyên đáp án đã nộp của thí sinh
           clearInterval(timerIntervalRef.current);
         }
       }, 500);
@@ -83,10 +84,13 @@ const GameMaster: React.FC = () => {
     if (!matchId || !gameState || gameState.currentQuestionIndex < 0 || gameState.isAnswerRevealed || isProcessing) return;
     setIsProcessing(true);
     try {
-      // Khi Manager bấm nút này mới thực hiện chốt điểm và chuyển trạng thái
-      await supabase.from('matches').update({ is_answer_revealed: true, status: GameStatus.SHOWING_RESULTS }).eq('id', matchId);
-      
-      // Sử dụng trực tiếp syncedResponses hiện có
+      // Chỉ cập nhật trạng thái hiển thị đáp án, không chuyển status ngay lập tức nếu muốn giữ giao diện ổn định
+      await supabase.from('matches').update({ 
+        is_answer_revealed: true, 
+        status: GameStatus.SHOWING_RESULTS 
+      }).eq('id', matchId);
+
+      // Chấm điểm cho các thí sinh có câu trả lời đúng
       for (const resp of syncedResponses) {
         if (resp.is_correct && resp.points_earned > 0) {
           const player = gameState.players.find(p => p.id === resp.player_id);
@@ -95,7 +99,9 @@ const GameMaster: React.FC = () => {
           }
         }
       }
-      refresh();
+      
+      // Theo yêu cầu, chúng ta không gọi refresh() ngay để tránh việc làm mới dữ liệu gây gián đoạn hiển thị
+      // Tuy nhiên, Supabase Realtime sẽ tự động đồng bộ hóa trạng thái mới về UI.
     } catch (e) { console.error(e); }
     finally { setIsProcessing(false); }
   };
@@ -126,7 +132,7 @@ const GameMaster: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="bg-indigo-600 px-6 py-2 rounded-xl font-black text-2xl font-mono">{gameState.matchCode}</div>
             
-            {/* Nhóm điều khiển tập trung - Giữ nguyên các nút như yêu cầu */}
+            {/* Nhóm điều khiển tập trung - Giữ nguyên các nút và chức năng */}
             {gameState.currentQuestionIndex >= 0 && (
               <div className="flex bg-slate-800/50 p-1 rounded-2xl gap-1.5 border border-white/5">
                 <button 
