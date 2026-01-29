@@ -215,6 +215,9 @@ const GameMaster: React.FC = () => {
                  </div>
                )}
             </div>
+                  <footer className="mt-20 text-slate-400 font-medium">
+        &copy; 2026 Thầy Tuấn Lý với hỗ trợ của Google AI Studio.
+      </footer>
           </div>
 
           <div className="flex flex-col min-h-0">
