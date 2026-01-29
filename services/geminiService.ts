@@ -2,7 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const generateQuestionsAI = async (topic: string, count: number) => {
-  // Sử dụng trực tiếp process.env.API_KEY theo hướng dẫn
+  // Thêm dòng này để TypeScript không báo lỗi "Cannot find name 'process'"
+  // @ts-ignore
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
