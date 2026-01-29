@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.ts';
 import { Question, QuestionType } from '../types.ts';
 import { generateQuestionsAI } from '../services/geminiService.ts';
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 const ManagerDashboard: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -13,6 +14,7 @@ const ManagerDashboard: React.FC = () => {
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (sessionStorage.getItem('is_admin') !== 'true') {
@@ -116,6 +118,89 @@ const ManagerDashboard: React.FC = () => {
     setQuestions(questions.map(q => q.id === id ? { ...q, ...updates } : q));
   };
 
+  // --- EXCEL EXPORT ---
+  const exportToExcel = () => {
+    const data = questions.map((q, i) => ({
+      "STT": i + 1,
+      "Loại": q.type,
+      "Nội dung": q.content,
+      "Lựa chọn A": q.options?.[0] || "",
+      "Lựa chọn B": q.options?.[1] || "",
+      "Lựa chọn C": q.options?.[2] || "",
+      "Lựa chọn D": q.options?.[3] || "",
+      "Đáp án đúng": q.correctAnswer,
+      "Điểm": q.points,
+      "Thời gian (s)": q.timeLimit,
+      "Loại Media": q.mediaType,
+      "Link Media": q.mediaUrl || ""
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Questions");
+    XLSX.writeFile(workbook, `EduQuiz_Questions_${code}.xlsx`);
+  };
+
+  // --- EXCEL IMPORT ---
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const importFromExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !matchId) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          alert("File rỗng hoặc không đúng định dạng!");
+          return;
+        }
+
+        const insertData = data.map((row: any, i: number) => {
+          const type = row["Loại"] || QuestionType.MCQ;
+          const options = type === QuestionType.MCQ ? [
+            row["Lựa chọn A"] || "A",
+            row["Lựa chọn B"] || "B",
+            row["Lựa chọn C"] || "C",
+            row["Lựa chọn D"] || "D"
+          ] : [];
+
+          return {
+            match_id: matchId,
+            type: type,
+            content: row["Nội dung"] || "Câu hỏi không có nội dung",
+            options: options,
+            correct_answer: row["Đáp án đúng"] || "",
+            points: parseInt(row["Điểm"]) || 10,
+            time_limit: parseInt(row["Thời gian (s)"]) || 30,
+            media_type: row["Loại Media"] || "none",
+            media_url: row["Link Media"] || null,
+            sort_order: questions.length + i
+          };
+        });
+
+        const { error } = await supabase.from('questions').insert(insertData);
+        if (error) throw error;
+
+        fetchMatchAndQuestions();
+        alert(`Đã nhập thành công ${insertData.length} câu hỏi!`);
+      } catch (err: any) {
+        alert("Lỗi khi nhập Excel: " + err.message);
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 pb-24 font-inter">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 gap-4">
@@ -130,7 +215,28 @@ const ManagerDashboard: React.FC = () => {
             <button onClick={() => handleAddQuestion(QuestionType.SHORT_ANSWER)} className="px-3 py-2 text-[10px] font-black text-slate-700 hover:bg-white rounded-lg transition">+ TỰ LUẬN</button>
             <button onClick={() => handleAddQuestion(QuestionType.BUZZER)} className="px-3 py-2 text-[10px] font-black text-rose-600 hover:bg-white rounded-lg transition">+ CHUÔNG</button>
           </div>
-          <button onClick={() => navigate(`/host/${code}`)} className="bg-emerald-500 text-white px-8 py-3 rounded-xl font-black shadow-lg shadow-emerald-200 transition active:scale-95">VÀO TRẬN ĐẤU</button>
+          <div className="flex gap-2">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={importFromExcel} 
+              accept=".xlsx, .xls" 
+              className="hidden" 
+            />
+            <button 
+              onClick={handleImportClick}
+              className="bg-white border-2 border-slate-200 text-slate-600 px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-slate-50 transition flex items-center gap-2"
+            >
+              📥 Nhập Excel
+            </button>
+            <button 
+              onClick={exportToExcel}
+              className="bg-white border-2 border-slate-200 text-slate-600 px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-slate-50 transition flex items-center gap-2"
+            >
+              📤 Xuất Excel
+            </button>
+            <button onClick={() => navigate(`/host/${code}`)} className="bg-emerald-500 text-white px-8 py-3 rounded-xl font-black shadow-lg shadow-emerald-200 transition active:scale-95">VÀO TRẬN ĐẤU</button>
+          </div>
         </div>
       </header>
 
@@ -158,7 +264,7 @@ const ManagerDashboard: React.FC = () => {
         {questions.length === 0 ? (
           <div className="bg-white p-20 text-center rounded-[32px] border-4 border-dashed border-slate-100">
              <p className="text-slate-400 font-bold text-xl uppercase tracking-widest">Chưa có câu hỏi nào</p>
-             <p className="text-slate-300 mt-2">Hãy nhấn nút bên trên để thêm câu hỏi mới</p>
+             <p className="text-slate-300 mt-2">Hãy nhấn nút bên trên để thêm câu hỏi mới hoặc Nhập từ Excel</p>
           </div>
         ) : (
           questions.map((q, idx) => (
