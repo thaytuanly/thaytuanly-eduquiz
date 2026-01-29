@@ -29,7 +29,7 @@ const GameMaster: React.FC = () => {
         setTimeLeft(remaining);
 
         if (remaining <= 0) {
-          handleTimeUp();
+          // Chỉ dừng timer cục bộ, không ép trạng thái match đổi trên server để tránh lỗi mất đồng bộ đáp án
           clearInterval(timerIntervalRef.current);
         }
       }, 500);
@@ -40,12 +40,6 @@ const GameMaster: React.FC = () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
   }, [gameState?.status, questionStartedAt, gameState?.currentQuestionIndex]);
-
-  const handleTimeUp = async () => {
-    if (!matchId || gameState?.status !== GameStatus.QUESTION_ACTIVE) return;
-    await supabase.from('matches').update({ status: GameStatus.SHOWING_RESULTS }).eq('id', matchId);
-    refresh();
-  };
 
   const jumpToQuestion = async (index: number) => {
     if (!matchId || isProcessing) return;
@@ -89,7 +83,10 @@ const GameMaster: React.FC = () => {
     if (!matchId || !gameState || gameState.currentQuestionIndex < 0 || gameState.isAnswerRevealed || isProcessing) return;
     setIsProcessing(true);
     try {
+      // Khi Manager bấm nút này mới thực hiện chốt điểm và chuyển trạng thái
       await supabase.from('matches').update({ is_answer_revealed: true, status: GameStatus.SHOWING_RESULTS }).eq('id', matchId);
+      
+      // Sử dụng trực tiếp syncedResponses hiện có
       for (const resp of syncedResponses) {
         if (resp.is_correct && resp.points_earned > 0) {
           const player = gameState.players.find(p => p.id === resp.player_id);
@@ -129,7 +126,7 @@ const GameMaster: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="bg-indigo-600 px-6 py-2 rounded-xl font-black text-2xl font-mono">{gameState.matchCode}</div>
             
-            {/* Nhóm điều khiển tập trung */}
+            {/* Nhóm điều khiển tập trung - Giữ nguyên các nút như yêu cầu */}
             {gameState.currentQuestionIndex >= 0 && (
               <div className="flex bg-slate-800/50 p-1 rounded-2xl gap-1.5 border border-white/5">
                 <button 
@@ -212,9 +209,6 @@ const GameMaster: React.FC = () => {
                  </div>
                )}
             </div>
-            <footer className="mt-20 text-slate-400 font-medium">
-        &copy; 2026 Thầy Tuấn Lý bằng sự hỗ trợ của Google AI Studio.
-      </footer>
           </div>
 
           <div className="flex flex-col min-h-0">

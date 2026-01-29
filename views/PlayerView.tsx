@@ -162,7 +162,13 @@ const PlayerView: React.FC = () => {
               
               {!submitted && !isTimeUp && gameState.status === GameStatus.QUESTION_ACTIVE ? (
                 <div className="space-y-4">
-                  {currentQ.type === QuestionType.MCQ ? (
+                  {currentQ.type === QuestionType.BUZZER ? (
+                    /* Giao diện dành riêng cho câu hỏi Bấm chuông */
+                    <div className="bg-white/50 border-4 border-dashed border-rose-200 p-10 rounded-[40px] text-center animate-pulse">
+                      <div className="text-6xl mb-4">🔔</div>
+                      <p className="text-rose-600 font-black text-xl uppercase leading-tight">Hãy nhanh tay bấm chuông bên dưới để giành quyền trả lời!</p>
+                    </div>
+                  ) : currentQ.type === QuestionType.MCQ ? (
                     <div className="grid grid-cols-1 gap-3">
                       {currentQ.options?.map((opt, i) => (
                         <button key={i} onClick={() => setLocalAnswer(opt)} className={`p-5 text-left border-4 rounded-[24px] font-bold flex items-center gap-4 ${localAnswer === opt ? 'border-indigo-600 bg-indigo-50' : 'bg-white border-white shadow-sm'}`}>
@@ -174,7 +180,11 @@ const PlayerView: React.FC = () => {
                   ) : (
                     <input value={localAnswer} onChange={e => setLocalAnswer(e.target.value)} className="w-full p-6 bg-white rounded-[24px] font-black text-xl text-center shadow-lg border-4 border-white focus:border-indigo-100 outline-none" placeholder="Gõ đáp án..." />
                   )}
-                  <button onClick={handleConfirmAnswer} disabled={!localAnswer || loading} className="w-full text-white py-5 rounded-[24px] font-black text-xl bg-emerald-500 shadow-xl disabled:opacity-50 transition active:scale-95">GỬI ĐÁP ÁN</button>
+                  
+                  {/* Chỉ hiện nút Gửi đáp án cho MCQ và Short Answer */}
+                  {currentQ.type !== QuestionType.BUZZER && (
+                    <button onClick={handleConfirmAnswer} disabled={!localAnswer || loading} className="w-full text-white py-5 rounded-[24px] font-black text-xl bg-emerald-500 shadow-xl disabled:opacity-50 transition active:scale-95">GỬI ĐÁP ÁN</button>
+                  )}
                 </div>
               ) : (
                 <div className="bg-white p-10 rounded-[40px] text-center border-4 border-emerald-50 shadow-xl animate-in zoom-in">
@@ -190,7 +200,9 @@ const PlayerView: React.FC = () => {
                     <>
                        <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 animate-pulse">⏳</div>
                        <p className="text-slate-400 font-black uppercase text-[10px] mb-2 tracking-widest">{isTimeUp ? 'Hết giờ' : 'Đã nộp bài'}</p>
-                       <p className="text-2xl font-black text-indigo-600 italic">"{localAnswer || "---"}"</p>
+                       <p className="text-2xl font-black text-indigo-600 italic">
+                        {currentQ.type === QuestionType.BUZZER ? (buzzerRank ? `Đã giành quyền #${buzzerRank}` : 'Đã sẵn sàng') : `"${localAnswer || "---"}"`}
+                       </p>
                     </>
                   )}
                 </div>
@@ -210,9 +222,6 @@ const PlayerView: React.FC = () => {
           {buzzerRank ? `ĐÃ NHẤN #${buzzerRank}` : 'BẤM CHUÔNG!'}
         </button>
       </div>
-      <footer className="mt-20 text-slate-400 font-medium">
-        &copy; 2026 Thầy Tuấn Lý bằng sự hỗ trợ của Google AI Studio.
-      </footer>
     </div>
   );
 };
