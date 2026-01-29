@@ -75,7 +75,7 @@ const HomeView: React.FC = () => {
       </div>
 
       <footer className="mt-20 text-slate-400 font-medium">
-        &copy; 2024 EduQuiz Pro Platform. Design for Excellence.
+        &copy; 2026 Thầy Tuấn Lý với hỗ trợ của Google AI Studio.
       </footer>
     </div>
   );
