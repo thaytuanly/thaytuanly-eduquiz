@@ -7,9 +7,9 @@ import { MediaRenderer } from '../components/MediaRenderer';
 
 // Asset âm thanh công cộng
 const SOUNDS = {
-  QUESTION: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // Tiếng beep bắt đầu
-  BUZZER: 'https://assets.mixkit.co/active_storage/sfx/1075/1075-preview.mp3',   // Tiếng chuông
-  TIMEUP: 'https://assets.mixkit.co/active_storage/sfx/1073/1073-preview.mp3'    // Tiếng hết giờ
+  QUESTION: 'https://www.myinstants.com/media/sounds/magic-fairy.mp3', // Tiếng beep bắt đầu
+  BUZZER: 'https://www.myinstants.com/media/sounds/taco-bell-bong-sfx.mp3',   // Tiếng chuông
+  TIMEUP: 'https://www.myinstants.com/media/sounds/boxing-bell.mp3'    // Tiếng hết giờ
 };
 
 const SpectatorView: React.FC = () => {
