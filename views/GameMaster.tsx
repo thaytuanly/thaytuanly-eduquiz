@@ -369,12 +369,6 @@ const handleBuzzerJudgment = async (playerId: string | null | undefined, rank: 1
     </div>
   </div>
 )}
-                 <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8 lg:p-12 text-center">
-                    <div className="text-6xl lg:text-9xl mb-4 lg:mb-8 opacity-10 animate-bounce">🏠</div>
-                    <p className="font-black text-lg lg:text-2xl uppercase text-white/20 tracking-tighter">Màn hình chờ</p>
-                    <p className="text-slate-500 mt-2 lg:mt-4 text-xs lg:text-sm font-medium">Đang có <span className="text-indigo-400 font-black">{gameState.players.length}</span> thí sinh sẵn sàng.</p>
-                 </div>
-               )}
             </div>
           </div>
 
