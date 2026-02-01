@@ -208,7 +208,6 @@ const PlayerView: React.FC = () => {
             </div>
           </div>
         ) : (
-         ) : (
   <div className="flex-1 flex flex-col p-5 overflow-y-auto bg-slate-50 custom-scrollbar">
     {/* Header thể lệ */}
     <div className="text-center mb-6">
