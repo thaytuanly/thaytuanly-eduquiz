@@ -208,11 +208,89 @@ const PlayerView: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-6">
-             <div className="text-8xl animate-bounce">🎮</div>
-             <h2 className="text-3xl font-black text-slate-900 uppercase">Vui lòng chờ...</h2>
+         ) : (
+  <div className="flex-1 flex flex-col p-5 overflow-y-auto bg-slate-50 custom-scrollbar">
+    {/* Header thể lệ */}
+    <div className="text-center mb-6">
+      <div className="inline-block px-3 py-1 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-2">
+        Waiting for Host
+      </div>
+      <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Thể Lệ Cuộc Thi</h2>
+    </div>
+
+    {/* Danh sách các dạng câu hỏi */}
+    <div className="space-y-4 pb-10">
+      
+      {/* 1. Trắc nghiệm */}
+      <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-white">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-lg">📋</div>
+          <h3 className="font-black text-slate-800 uppercase italic">1. Trắc nghiệm</h3>
+        </div>
+        <div className="space-y-2 text-sm text-slate-600 font-medium">
+          <p>• Chọn 1 đáp án đúng và bấm <span className="text-indigo-600 font-bold">Gửi đáp án</span>.</p>
+          <div className="flex justify-between items-center bg-slate-50 p-2 rounded-xl">
+             <span className="text-emerald-600">✔ Đúng: +100% điểm</span>
+             <span className="text-slate-400">✖ Sai: 0 điểm</span>
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* 2. Trả lời ngắn */}
+      <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-white">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-lg">⌨️</div>
+          <h3 className="font-black text-slate-800 uppercase italic">2. Trả lời ngắn</h3>
+        </div>
+        <div className="space-y-2 text-sm text-slate-600 font-medium">
+          <p>• Nhập câu trả lời vào ô trống và bấm <span className="text-indigo-600 font-bold">Gửi đáp án</span>.</p>
+          <div className="flex justify-between items-center bg-slate-50 p-2 rounded-xl">
+             <span className="text-emerald-600">✔ Đúng: +100% điểm</span>
+             <span className="text-slate-400">✖ Sai: 0 điểm</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Bấm chuông */}
+      <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-indigo-100">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center text-lg">⚡</div>
+          <h3 className="font-black text-slate-800 uppercase italic">3. Bấm chuông</h3>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600 font-medium">• 2 người nhanh tay nhất giành quyền trả lời.</p>
+          
+          <div className="space-y-2">
+            <div className="p-3 bg-rose-50 rounded-2xl border border-rose-100">
+              <p className="text-[10px] font-black text-rose-600 uppercase mb-1">Hạng 1 (Nhanh nhất)</p>
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-emerald-700">Đúng +100%</span>
+                <span className="text-rose-700">Sai -50%</span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100">
+              <p className="text-[10px] font-black text-amber-600 uppercase mb-1">Hạng 2 (Nhanh nhì)</p>
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-emerald-700">Đúng +50%</span>
+                <span className="text-rose-700">Sai -50%</span>
+              </div>
+            </div>
+          </div>
+          
+          <p className="text-[10px] text-slate-400 italic text-center leading-tight">
+            *Người thứ 2 chỉ được trả lời nếu người thứ 1 sai.
+          </p>
+        </div>
+      </div>
+
+      {/* Thông báo chờ */}
+      <div className="text-center pt-4 animate-pulse">
+        <p className="text-slate-400 font-bold text-xs uppercase tracking-tighter">Trận đấu sắp bắt đầu, hãy chuẩn bị!</p>
+      </div>
+    </div>
+  </div>
+)}
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-xl border-t flex items-center justify-between gap-6 z-40">
