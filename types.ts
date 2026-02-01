@@ -34,6 +34,13 @@ export enum GameStatus {
   FINISHED = 'FINISHED'
 }
 
+export interface User {
+  id: string;
+  username: string;
+  role: 'teacher' | 'admin';
+  full_name?: string;
+}
+
 export interface GameState {
   matchCode: string;
   status: GameStatus;
@@ -46,6 +53,7 @@ export interface GameState {
   buzzerP1Id: string | null;
   buzzerP2Id: string | null;
   isAnswerRevealed: boolean;
+  owner_id?: string;
 }
 
 export interface BroadcastMessage {
