@@ -244,6 +244,9 @@ const SpectatorView: React.FC = () => {
         </div>
 
       </div>
+       <footer className="p-4 lg:mt-0 text-slate-400 font-medium text-[10px] text-center shrink-0">
+          &copy; 2026 Thầy Tuấn Lý dưới sự trợ giúp của Google.
+        </footer>
     </div>
   );
 };
