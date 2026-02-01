@@ -221,40 +221,87 @@ const GameMaster: React.FC = () => {
           </div>
 
           <div className="flex flex-col min-h-0">
-            <h3 className="font-black text-[10px] uppercase text-slate-500 mb-4 border-b border-white/5 pb-2 tracking-widest">Danh sách thí sinh tham gia</h3>
-            <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
-              {/* Theo yêu cầu: Không xếp theo điểm, giữ nguyên thứ tự thời gian tham gia (được Hook handle) */}
-              {gameState.players.map((p, idx) => {
-                const resp = syncedResponses.find(r => r.player_id === p.id);
-                return (
-                  <div key={p.id} className="bg-white/5 p-4 rounded-[28px] border border-white/5 transition-all hover:bg-white/[0.08]">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 bg-slate-800 text-slate-400">{idx + 1}</div>
-                        {/* Tiền tố số thứ tự trước tên */}
-                        <span className="font-black text-xs truncate">{idx + 1}. {p.name}</span>
-                      </div>
-                      <input type="number" value={p.score} onChange={(e) => updatePlayerScore(p.id, parseInt(e.target.value) || 0)} className="w-12 bg-transparent text-emerald-400 font-black text-right outline-none text-sm" />
-                    </div>
-                    {resp ? (
-                      <div className={`p-2 rounded-xl border animate-in zoom-in ${gameState.isAnswerRevealed ? (resp.is_correct ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20') : 'bg-indigo-500/10 border-indigo-500/20 opacity-50'}`}>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className={`text-[6px] font-black px-1.5 py-0.5 rounded-full ${gameState.isAnswerRevealed ? (resp.is_correct ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white') : 'bg-indigo-400 text-white'}`}>
-                            {gameState.isAnswerRevealed ? (resp.is_correct ? 'ĐÚNG' : 'SAI') : 'ĐÃ NỘP'}
-                          </span>
-                          <span className="text-[8px] font-mono text-white/30">{resp.response_time}ms</span>
-                        </div>
-                        <p className={`text-xs font-bold text-white truncate ${!gameState.isAnswerRevealed && 'blur-sm select-none opacity-20'}`}>"{resp.answer}"</p>
-                      </div>
-                    ) : (
-                      <div className="p-2 rounded-xl bg-white/5 border border-white/5 border-dashed text-center opacity-20">
-                        <p className="text-[8px] text-slate-500 font-bold uppercase italic">Chờ...</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+  <h3 className="font-black text-[10px] uppercase text-slate-500 mb-4 border-b border-white/5 pb-2 tracking-widest">
+    Danh sách thí sinh tham gia
+  </h3>
+  <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+    {/* 1. Tạo danh sách ảo đã sắp xếp theo điểm để tính hạng (Rank) */}
+    {(() => {
+      // Clone mảng và sort để tìm thứ hạng mà không ảnh hưởng thứ tự hiển thị
+      const sortedByScore = [...gameState.players].sort((a, b) => b.score - a.score);
+
+      return gameState.players.map((p, idx) => {
+        const resp = syncedResponses.find((r) => r.player_id === p.id);
+        
+        // Tính hạng hiện tại dựa trên ID của người chơi trong mảng đã sort
+        const currentRank = sortedByScore.findIndex(sp => sp.id === p.id) + 1;
+
+        return (
+          <div key={p.id} className="bg-white/5 p-4 rounded-[28px] border border-white/5 transition-all hover:bg-white/[0.08]">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2 overflow-hidden">
+                {/* Hiển thị Rank (currentRank) trong vòng tròn thay vì số thứ tự danh sách (idx) */}
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 ${
+                    currentRank === 1 ? "bg-yellow-400 text-indigo-950" : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {currentRank}
+                </div>
+                
+                {/* Yêu cầu 1: Tiền tố số chỉ vị trí xếp hạng trước tên */}
+                <span className="font-black text-xs truncate">
+                  <span className="text-slate-500 mr-1">#{currentRank}</span> {p.name}
+                </span>
+              </div>
+              
+              <input
+                type="number"
+                value={p.score}
+                onChange={(e) => updatePlayerScore(p.id, parseInt(e.target.value) || 0)}
+                className="w-12 bg-transparent text-emerald-400 font-black text-right outline-none text-sm"
+              />
             </div>
+            
+            {resp ? (
+              <div
+                className={`p-2 rounded-xl border animate-in zoom-in ${
+                  gameState.isAnswerRevealed
+                    ? resp.is_correct
+                      ? "bg-emerald-500/10 border-emerald-500/20"
+                      : "bg-rose-500/10 border-rose-500/20"
+                    : "bg-indigo-500/10 border-indigo-500/20" // Bỏ opacity-50 để sáng rõ
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <span
+                    className={`text-[6px] font-black px-1.5 py-0.5 rounded-full ${
+                      gameState.isAnswerRevealed
+                        ? resp.is_correct
+                          ? "bg-emerald-500 text-white"
+                          : "bg-rose-500 text-white"
+                        : "bg-indigo-400 text-white"
+                    }`}
+                  >
+                    {gameState.isAnswerRevealed ? (resp.is_correct ? "ĐÚNG" : "SAI") : "ĐÃ NỘP"}
+                  </span>
+                  <span className="text-[8px] font-mono text-white/30">{resp.response_time}ms</span>
+                </div>
+                
+                {/* Yêu cầu 2: Không làm mờ đáp án. Đã xóa class blur-sm select-none opacity-20 */}
+                <p className="text-xs font-bold text-white truncate">"{resp.answer}"</p>
+              </div>
+            ) : (
+              <div className="p-2 rounded-xl bg-white/5 border border-white/5 border-dashed text-center opacity-20">
+                <p className="text-[8px] text-slate-500 font-bold uppercase italic">Chờ...</p>
+              </div>
+            )}
+          </div>
+        );
+      });
+    })()}
+  </div>
+</div>
           </div>
         </main>
       </div>
