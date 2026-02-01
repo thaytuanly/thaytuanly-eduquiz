@@ -288,7 +288,6 @@ const handleBuzzerJudgment = async (playerId: string | null | undefined, rank: 1
                     </div>
                  </div>
                ) : (
-      ) : (
   <div className="flex-1 flex flex-col items-center justify-start lg:justify-center p-4 lg:p-12 overflow-y-auto custom-scrollbar">
     {/* Header */}
     <div className="text-center mb-6 lg:mb-10">
