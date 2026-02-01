@@ -157,13 +157,77 @@ const SpectatorView: React.FC = () => {
               </div>
             </div>
           ) : gameState.status === GameStatus.LOBBY ? (
-            <div className="bg-white/5 border-2 border-dashed border-white/10 rounded-[48px] p-12 text-center flex-1 flex flex-col justify-center items-center backdrop-blur-3xl shadow-2xl">
-               <div className="text-[120px] mb-8 animate-bounce">👋</div>
-               <h2 className="text-4xl font-black mb-12 text-white uppercase tracking-widest opacity-80">Chào mừng các thí sinh</h2>
-               <div className="flex flex-wrap justify-center gap-5 max-w-4xl">
-                 {gameState.players.length === 0 ? (
-                    <p className="text-slate-500 font-bold text-xl italic">Đang chờ thí sinh tham gia...</p>
-                 ) : (
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="grid lg:grid-cols-5 gap-8 h-full">
+                
+                {/* CỘT TRÁI: THỂ LỆ (Chiếm 3/5 màn hình) */}
+                <div className="lg:col-span-3 flex flex-col gap-6">
+                  <div className="bg-indigo-600/10 border-4 border-white/5 rounded-[48px] p-10 flex-1 flex flex-col">
+                    <div className="flex items-center gap-4 mb-8">
+                      <span className="text-5xl animate-pulse">📜</span>
+                      <h2 className="text-5xl font-black text-white uppercase tracking-tighter italic">Thể lệ cuộc thi</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6 flex-1">
+                      {/* Dạng 1 & 2 */}
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="bg-white/5 p-6 rounded-[32px] border border-white/10">
+                          <h3 className="text-indigo-400 font-black text-xl mb-3 uppercase">1. Trắc nghiệm</h3>
+                          <p className="text-slate-300 text-sm leading-relaxed font-medium">Chọn 1 đáp án đúng. <br/> Đúng <span className="text-emerald-400 font-black">+100%</span> điểm. Sai không bị trừ.</p>
+                        </div>
+                        <div className="bg-white/5 p-6 rounded-[32px] border border-white/10">
+                          <h3 className="text-amber-400 font-black text-xl mb-3 uppercase">2. Trả lời ngắn</h3>
+                          <p className="text-slate-300 text-sm leading-relaxed font-medium">Nhập trực tiếp đáp án. <br/> Đúng <span className="text-emerald-400 font-black">+100%</span> điểm. Sai không bị trừ.</p>
+                        </div>
+                      </div>
+
+                      {/* Dạng 3: Bấm chuông (Nhấn mạnh vì phức tạp) */}
+                      <div className="bg-gradient-to-br from-indigo-600/20 to-rose-600/10 p-8 rounded-[40px] border-2 border-indigo-500/30 relative overflow-hidden">
+                        <div className="absolute top-4 right-6 text-6xl opacity-10">🔔</div>
+                        <h3 className="text-rose-400 font-black text-2xl mb-4 uppercase italic">3. Bấm chuông giành quyền</h3>
+                        <div className="grid grid-cols-2 gap-6">
+                          <div className="bg-black/30 p-5 rounded-3xl border border-white/5">
+                            <p className="text-[10px] font-black text-indigo-300 uppercase mb-2 tracking-widest">Hạng 1 (Nhanh nhất)</p>
+                            <p className="text-lg font-bold">Đúng <span className="text-emerald-400">+100%</span> | Sai <span className="text-rose-500">-50%</span></p>
+                          </div>
+                          <div className="bg-black/30 p-5 rounded-3xl border border-white/5">
+                            <p className="text-[10px] font-black text-amber-300 uppercase mb-2 tracking-widest">Hạng 2 (Nhanh nhì)</p>
+                            <p className="text-lg font-bold">Đúng <span className="text-emerald-400">+50%</span> | Sai <span className="text-rose-500">-50%</span></p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-4 italic">* Thí sinh hạng 2 chỉ được trả lời nếu thí sinh hạng 1 trả lời sai.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CỘT PHẢI: DANH SÁCH THÍ SINH (Chiếm 2/5 màn hình) */}
+                <div className="lg:col-span-2 flex flex-col">
+                  <div className="bg-white/5 border-4 border-dashed border-white/10 rounded-[48px] p-8 flex-1 flex flex-col items-center">
+                    <h2 className="text-2xl font-black mb-8 text-indigo-300 uppercase tracking-widest flex items-center gap-3">
+                       <span className="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></span>
+                       Thí sinh đã tham gia ({gameState.players.length})
+                    </h2>
+                    <div className="flex flex-wrap justify-center gap-3 overflow-y-auto w-full custom-scrollbar pr-2">
+                      {gameState.players.length === 0 ? (
+                        <div className="flex flex-col items-center gap-4 opacity-30 mt-10">
+                           <div className="text-6xl animate-pulse">⌛</div>
+                           <p className="text-slate-500 font-bold italic">Đang chờ kết nối...</p>
+                        </div>
+                      ) : (
+                        gameState.players.map(p => (
+                          <div key={p.id} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-lg shadow-lg animate-in zoom-in duration-300">
+                            {p.name}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          ) : (
                     gameState.players.map(p => (
                       <div key={p.id} className="bg-white text-indigo-950 px-8 py-4 rounded-[28px] font-black text-xl shadow-xl animate-in fade-in slide-in-from-bottom-4 ring-4 ring-indigo-500/10">
                         {p.name}
