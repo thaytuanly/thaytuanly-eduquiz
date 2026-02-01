@@ -1,9 +1,13 @@
+import { createClient } from '@supabase/supabase-js';
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// 1. Sử dụng import.meta.env thay cho process.env
+// 2. Sử dụng tên biến có tiền tố VITE_
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Sử dụng biến môi trường từ Vercel thay vì hardcode
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+// Kiểm tra nhanh để debug (f12 trên trình duyệt sẽ thấy lỗi nếu thiếu biến)
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Lỗi: Thiếu biến môi trường VITE_SUPABASE_URL hoặc VITE_SUPABASE_ANON_KEY');
+}
 
-// Khởi tạo client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
