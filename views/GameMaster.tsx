@@ -191,15 +191,62 @@ const GameMaster: React.FC = () => {
                       {/* THAY ĐỔI: Giảm size chữ câu hỏi */}
                       <h2 className="text-xl lg:text-4xl font-extrabold leading-tight mb-6 lg:mb-10 lg:pr-24 mt-2 lg:mt-0">{currentQ.content}</h2>
                       
-                      {/* Khu vực chuông */}
+                      {/* Khu vực chuông - Đã cập nhật nút chấm điểm */}
                       <div className="flex gap-2 lg:gap-4 mb-6 lg:mb-10">
-                          <div className={`p-3 lg:p-6 rounded-2xl lg:rounded-[32px] border flex-1 text-center transition-all duration-500 ${gameState?.buzzerP1Id ? 'bg-emerald-500/20 border-emerald-500/40 scale-105 shadow-xl' : 'bg-white/5 border-white/5 opacity-50'}`}>
-                             <p className="text-[8px] lg:text-[10px] font-black uppercase text-emerald-400 mb-1">🔔 Hạng 1</p>
-                             <p className="text-sm lg:text-2xl font-black truncate">{gameState?.players.find(p => p.id === gameState.buzzerP1Id)?.name || "---"}</p>
+                          {/* --- BUZZER HẠNG 1 --- */}
+                          <div className={`p-3 lg:p-6 rounded-2xl lg:rounded-[32px] border flex-1 flex flex-col items-center justify-between transition-all duration-500 ${gameState?.buzzerP1Id ? 'bg-emerald-500/10 border-emerald-500/40 shadow-xl' : 'bg-white/5 border-white/5 opacity-50'}`}>
+                             <div className="text-center w-full">
+                                <p className="text-[8px] lg:text-[10px] font-black uppercase text-emerald-400 mb-1">🔔 Hạng 1</p>
+                                <p className="text-sm lg:text-2xl font-black truncate mb-2">{gameState?.players.find(p => p.id === gameState.buzzerP1Id)?.name || "---"}</p>
+                             </div>
+                             
+                             {/* Chỉ hiện nút chấm điểm nếu có người bấm chuông */}
+                             {gameState?.buzzerP1Id && (
+                                <div className="flex gap-2 mt-1 w-full justify-center">
+                                  <button 
+                                    onClick={() => handleBuzzerJudgment(gameState.buzzerP1Id, 1, true)}
+                                    className="flex-1 max-w-[60px] bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded-lg flex items-center justify-center transition-transform active:scale-95"
+                                    title="Đúng (+100% điểm)"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button 
+                                    onClick={() => handleBuzzerJudgment(gameState.buzzerP1Id, 1, false)}
+                                    className="flex-1 max-w-[60px] bg-rose-600 hover:bg-rose-500 text-white py-1.5 rounded-lg flex items-center justify-center transition-transform active:scale-95"
+                                    title="Sai (-50% điểm)"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                             )}
                           </div>
-                          <div className={`p-3 lg:p-6 rounded-2xl lg:rounded-[32px] border flex-1 text-center transition-all duration-500 ${gameState?.buzzerP2Id ? 'bg-amber-500/20 border-amber-500/40 scale-105 shadow-xl' : 'bg-white/5 border-white/5 opacity-50'}`}>
-                             <p className="text-[8px] lg:text-[10px] font-black uppercase text-amber-400 mb-1">🔔 Hạng 2</p>
-                             <p className="text-sm lg:text-2xl font-black truncate">{gameState?.players.find(p => p.id === gameState.buzzerP2Id)?.name || "---"}</p>
+
+                          {/* --- BUZZER HẠNG 2 --- */}
+                          <div className={`p-3 lg:p-6 rounded-2xl lg:rounded-[32px] border flex-1 flex flex-col items-center justify-between transition-all duration-500 ${gameState?.buzzerP2Id ? 'bg-amber-500/10 border-amber-500/40 shadow-xl' : 'bg-white/5 border-white/5 opacity-50'}`}>
+                             <div className="text-center w-full">
+                                <p className="text-[8px] lg:text-[10px] font-black uppercase text-amber-400 mb-1">🔔 Hạng 2</p>
+                                <p className="text-sm lg:text-2xl font-black truncate mb-2">{gameState?.players.find(p => p.id === gameState.buzzerP2Id)?.name || "---"}</p>
+                             </div>
+
+                             {/* Chỉ hiện nút chấm điểm nếu có người bấm chuông */}
+                             {gameState?.buzzerP2Id && (
+                                <div className="flex gap-2 mt-1 w-full justify-center">
+                                  <button 
+                                    onClick={() => handleBuzzerJudgment(gameState.buzzerP2Id, 2, true)}
+                                    className="flex-1 max-w-[60px] bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded-lg flex items-center justify-center transition-transform active:scale-95"
+                                    title="Đúng (+50% điểm)"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button 
+                                    onClick={() => handleBuzzerJudgment(gameState.buzzerP2Id, 2, false)}
+                                    className="flex-1 max-w-[60px] bg-rose-600 hover:bg-rose-500 text-white py-1.5 rounded-lg flex items-center justify-center transition-transform active:scale-95"
+                                    title="Sai (-50% điểm)"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                             )}
                           </div>
                       </div>
                       
