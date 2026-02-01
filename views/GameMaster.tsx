@@ -93,7 +93,37 @@ const GameMaster: React.FC = () => {
   const updatePlayerScore = async (playerId: string, newScore: number) => {
     await supabase.from('players').update({ score: newScore }).eq('id', playerId);
   };
+const handleBuzzerJudgment = async (playerId: string | null | undefined, rank: 1 | 2, isCorrect: boolean) => {
+    if (!playerId || !gameState) return;
 
+    // Lấy điểm của câu hỏi hiện tại, mặc định 20 nếu không có
+    const currentQuestion = gameState.questions[gameState.currentQuestionIndex];
+    // Ép kiểu 'any' để tránh lỗi TS nếu type Question chưa khai báo field points
+    const questionPoints = (currentQuestion as any).points || 20; 
+    
+    // Tìm người chơi
+    const player = gameState.players.find(p => p.id === playerId);
+    if (!player) return;
+
+    let pointsChanged = 0;
+
+    if (rank === 1) {
+        // Hạng 1: Đúng +100%, Sai -50%
+        pointsChanged = isCorrect ? questionPoints : -(questionPoints * 0.5);
+    } else {
+        // Hạng 2: Đúng +50%, Sai -50%
+        pointsChanged = isCorrect ? (questionPoints * 0.5) : -(questionPoints * 0.5);
+    }
+
+    // Làm tròn điểm số
+    pointsChanged = Math.floor(pointsChanged);
+
+    // Tính điểm mới
+    const newScore = player.score + pointsChanged;
+    
+    // Cập nhật lên server
+    await updatePlayerScore(playerId, newScore);
+  };
   if (!gameState) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-black">ĐANG KẾT NỐI...</div>;
 
   const currentQ = gameState.questions[gameState.currentQuestionIndex];
