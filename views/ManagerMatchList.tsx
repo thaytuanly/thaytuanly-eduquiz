@@ -8,30 +8,40 @@ interface MatchInfo {
   code: string;
   name: string;
   created_at: string;
+  owner_id?: string;
 }
 
 const ManagerMatchList: React.FC = () => {
   const [matches, setMatches] = useState<MatchInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userName, setUserName] = useState('');
   const navigate = useNavigate();
 
+  const userId = sessionStorage.getItem('user_id');
+  const userRole = sessionStorage.getItem('user_role');
+
   useEffect(() => {
-    if (sessionStorage.getItem('is_admin') !== 'true') {
+    if (!userId) {
       navigate('/login');
       return;
     }
+    setUserName(sessionStorage.getItem('user_name') || '');
     fetchMatches();
-  }, [navigate]);
+  }, [navigate, userId]);
 
   const fetchMatches = async () => {
     try {
-      const { data, error } = await supabase.from('matches').select('*').order('created_at', { ascending: false });
+      let query = supabase.from('matches').select('*');
+      
+      // Nếu không phải admin, chỉ lấy trận đấu của chính mình
+      if (userRole !== 'admin') {
+        query = query.eq('owner_id', userId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
       if (error) {
         console.error("Fetch error:", error);
-        // Nếu lỗi do bảng chưa tồn tại
-        if (error.code === 'PGRST116' || error.message.includes('not found')) {
-          console.error("Bảng 'matches' chưa tồn tại. Hãy chạy database.sql");
-        }
       }
       setMatches(data || []);
     } catch (err) {
@@ -40,32 +50,30 @@ const ManagerMatchList: React.FC = () => {
   };
 
   const createNewMatch = async () => {
+    if (!userId) return;
     setLoading(true);
     const newCode = Math.floor(100000 + Math.random() * 900000).toString();
     
     try {
-      // Thử chèn một dòng mới vào bảng matches
       const { data, error } = await supabase.from('matches').insert([
         { 
           code: newCode, 
-          name: `Trận đấu ${newCode}`, 
+          name: `Trận đấu của ${userName} - ${newCode}`, 
           status: 'LOBBY',
           current_question_index: -1,
-          timer: 0
+          timer: 0,
+          owner_id: userId // Gán chủ sở hữu
         }
       ]).select();
 
       if (error) {
-        console.error("Supabase Error Details:", error);
-        alert(`LỖI DATABASE: ${error.message}\n\nLưu ý: Bạn cần vào SQL Editor của Supabase và chạy file database.sql để tạo bảng trước khi sử dụng.`);
+        alert(`LỖI DATABASE: ${error.message}`);
         setLoading(false);
         return;
       }
       
       if (data && data.length > 0) {
         navigate(`/manage/${newCode}`);
-      } else {
-        alert("Không nhận được phản hồi từ database sau khi tạo.");
       }
     } catch (err: any) {
       alert(`LỖI HỆ THỐNG: ${err.message}`);
@@ -82,16 +90,21 @@ const ManagerMatchList: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-12">
       <div className="max-w-6xl mx-auto">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
           <div>
-            <h1 className="text-4xl font-black text-slate-900">Danh Sách Trận Đấu</h1>
-            <p className="text-slate-500 font-medium">Hệ thống quản lý trực tuyến</p>
+            <h1 className="text-4xl font-black text-slate-900">Chào, {userName}</h1>
+            <p className="text-slate-500 font-medium">Vai trò: <span className="uppercase text-indigo-600">{userRole === 'admin' ? 'Quản trị viên toàn hệ thống' : 'Giáo viên'}</span></p>
           </div>
           <div className="flex gap-4">
-            <button onClick={() => { sessionStorage.removeItem('is_admin'); navigate('/'); }} className="px-6 py-4 rounded-2xl bg-white text-slate-400 font-bold border border-slate-200">Đăng xuất</button>
+            <button onClick={handleLogout} className="px-6 py-4 rounded-2xl bg-white text-slate-400 font-bold border border-slate-200">Đăng xuất</button>
             <button 
               onClick={createNewMatch} 
               disabled={loading}
@@ -105,8 +118,8 @@ const ManagerMatchList: React.FC = () => {
         {matches.length === 0 && !loading ? (
           <div className="bg-white rounded-[40px] p-20 text-center border-4 border-dashed border-slate-100">
              <div className="text-6xl mb-4">📭</div>
-             <h3 className="text-xl font-bold text-slate-400">Chưa có trận đấu nào</h3>
-             <p className="text-slate-300 mt-2">Hãy kiểm tra xem bạn đã chạy file database.sql trong Supabase chưa.</p>
+             <h3 className="text-xl font-bold text-slate-400">Bạn chưa tạo trận đấu nào</h3>
+             <p className="text-slate-300 mt-2">Nhấn nút "Tạo trận đấu mới" để bắt đầu tổ chức thi đấu.</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
