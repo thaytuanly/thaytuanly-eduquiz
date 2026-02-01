@@ -288,6 +288,88 @@ const handleBuzzerJudgment = async (playerId: string | null | undefined, rank: 1
                     </div>
                  </div>
                ) : (
+      ) : (
+  <div className="flex-1 flex flex-col items-center justify-start lg:justify-center p-4 lg:p-12 overflow-y-auto custom-scrollbar">
+    {/* Header */}
+    <div className="text-center mb-6 lg:mb-10">
+      <div className="inline-block px-4 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+        Lobby • {gameState.matchCode}
+      </div>
+      <h2 className="text-3xl lg:text-5xl font-black text-white tracking-tight">THỂ LỆ CUỘC THI</h2>
+      <p className="text-slate-500 mt-2 text-xs lg:text-sm font-medium">
+        Đang có <span className="text-emerald-400 font-black">{gameState.players.length}</span> thí sinh sẵn sàng.
+      </p>
+    </div>
+
+    {/* 3 Dạng câu hỏi - Grid System */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-6 w-full max-w-6xl">
+      
+      {/* Dạng 1: Trắc nghiệm */}
+      <div className="bg-white/5 border border-white/5 p-5 lg:p-8 rounded-[32px] flex flex-col h-full">
+        <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center text-xl lg:text-2xl mb-4">
+          📋
+        </div>
+        <h3 className="text-lg font-black text-white mb-3 uppercase italic tracking-wide">1. Trắc nghiệm</h3>
+        <ul className="text-slate-400 text-xs lg:text-sm space-y-2 flex-1">
+          <li className="flex gap-2"><span>•</span> Chọn 1 trong 4 lựa chọn.</li>
+          <li className="flex gap-2"><span>•</span> Nhấn <b className="text-white">"Gửi đáp án"</b> để nộp.</li>
+          <li className="flex gap-2 text-emerald-400"><span>✓</span> Đúng: Nhận 100% số điểm.</li>
+          <li className="flex gap-2 text-rose-400"><span>✕</span> Sai: 0 điểm.</li>
+        </ul>
+      </div>
+
+      {/* Dạng 2: Trả lời ngắn */}
+      <div className="bg-white/5 border border-white/5 p-5 lg:p-8 rounded-[32px] flex flex-col h-full">
+        <div className="w-10 h-10 lg:w-12 lg:h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-xl lg:text-2xl mb-4">
+          ⌨️
+        </div>
+        <h3 className="text-lg font-black text-white mb-3 uppercase italic tracking-wide">2. Trả lời ngắn</h3>
+        <ul className="text-slate-400 text-xs lg:text-sm space-y-2 flex-1">
+          <li className="flex gap-2"><span>•</span> Gõ trực tiếp đáp án vào ô trống.</li>
+          <li className="flex gap-2"><span>•</span> Nhấn <b className="text-white">"Gửi đáp án"</b> để nộp.</li>
+          <li className="flex gap-2 text-emerald-400"><span>✓</span> Đúng: Nhận 100% số điểm.</li>
+          <li className="flex gap-2 text-rose-400"><span>✕</span> Sai: 0 điểm.</li>
+        </ul>
+      </div>
+
+      {/* Dạng 3: Bấm chuông */}
+      <div className="bg-indigo-600/10 border border-indigo-500/20 p-5 lg:p-8 rounded-[32px] flex flex-col h-full relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
+           <span className="text-6xl">🔔</span>
+        </div>
+        <div className="w-10 h-10 lg:w-12 lg:h-12 bg-rose-500/20 rounded-2xl flex items-center justify-center text-xl lg:text-2xl mb-4">
+          ⚡
+        </div>
+        <h3 className="text-lg font-black text-white mb-3 uppercase italic tracking-wide">3. Bấm chuông</h3>
+        <div className="space-y-3 flex-1">
+          <div className="p-3 bg-black/20 rounded-xl border border-white/5">
+            <p className="text-[10px] font-black text-indigo-400 uppercase mb-1">Hạng 1 (Nhanh nhất)</p>
+            <p className="text-xs text-slate-300">Đúng <span className="text-emerald-400 font-bold">+100%</span> • Sai <span className="text-rose-500 font-bold">-50%</span></p>
+          </div>
+          <div className="p-3 bg-black/20 rounded-xl border border-white/5">
+            <p className="text-[10px] font-black text-amber-400 uppercase mb-1">Hạng 2 (Nhanh nhì)</p>
+            <p className="text-xs text-slate-300">Đúng <span className="text-emerald-400 font-bold">+50%</span> • Sai <span className="text-rose-500 font-bold">-50%</span></p>
+          </div>
+          <p className="text-[10px] text-slate-500 italic leading-relaxed">
+            *Người thứ 2 chỉ được quyền trả lời nếu người thứ 1 sai.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    {/* Nút Start */}
+    <div className="mt-8 lg:mt-12 flex flex-col items-center gap-4">
+      <button 
+        onClick={() => jumpToQuestion(0)}
+        className="px-12 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-emerald-600/20 transition-all active:scale-95 uppercase tracking-widest text-sm"
+      >
+        Bắt đầu trận đấu
+      </button>
+      <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Sẵn sàng để bùng nổ!</p>
+    </div>
+  </div>
+)}
                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8 lg:p-12 text-center">
                     <div className="text-6xl lg:text-9xl mb-4 lg:mb-8 opacity-10 animate-bounce">🏠</div>
                     <p className="font-black text-lg lg:text-2xl uppercase text-white/20 tracking-tighter">Màn hình chờ</p>
