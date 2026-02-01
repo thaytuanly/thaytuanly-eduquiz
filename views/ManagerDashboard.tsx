@@ -14,34 +14,62 @@ const ManagerDashboard: React.FC = () => {
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const userId = sessionStorage.getItem('user_id');
+  const userRole = sessionStorage.getItem('user_role');
+
   useEffect(() => {
-    if (sessionStorage.getItem('is_admin') !== 'true') {
+    if (!userId) {
       navigate('/login');
       return;
     }
     fetchMatchAndQuestions();
-  }, [code, navigate]);
+  }, [code, navigate, userId]);
 
   const fetchMatchAndQuestions = async () => {
-    const { data: match } = await supabase.from('matches').select('id').eq('code', code).single();
-    if (match) {
-      setMatchId(match.id);
-      const { data: qs } = await supabase.from('questions').select('*').eq('match_id', match.id).order('sort_order', { ascending: true });
-      const mappedQs = (qs || []).map(q => ({
-        ...q,
-        correctAnswer: q.correct_answer,
-        timeLimit: q.time_limit,
-        mediaUrl: q.media_url,
-        mediaType: q.media_type
-      }));
-      setQuestions(mappedQs);
+    const { data: match } = await supabase
+      .from('matches')
+      .select('id, owner_id')
+      .eq('code', code)
+      .maybeSingle();
+
+    if (!match) {
+      alert("Không tìm thấy trận đấu!");
+      navigate('/manage-list');
+      return;
     }
+
+    // Kiểm tra quyền: Nếu không phải admin và cũng không phải chủ sở hữu
+    if (userRole !== 'admin' && match.owner_id !== userId) {
+      setHasPermission(false);
+      alert("Bạn không có quyền quản lý trận đấu này!");
+      navigate('/manage-list');
+      return;
+    }
+
+    setHasPermission(true);
+    setMatchId(match.id);
+    
+    const { data: qs } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('match_id', match.id)
+      .order('sort_order', { ascending: true });
+
+    const mappedQs = (qs || []).map(q => ({
+      ...q,
+      correctAnswer: q.correct_answer,
+      timeLimit: q.time_limit,
+      mediaUrl: q.media_url,
+      mediaType: q.media_type
+    }));
+    setQuestions(mappedQs);
   };
 
   const handleAddQuestion = async (type: QuestionType) => {
-    if (!matchId) return;
+    if (!matchId || !hasPermission) return;
     const newQ = {
       match_id: matchId,
       type: type,
@@ -62,7 +90,7 @@ const ManagerDashboard: React.FC = () => {
   };
 
   const handleGenerateAI = async () => {
-    if (!aiTopic || !matchId) return;
+    if (!aiTopic || !matchId || !hasPermission) return;
     setLoadingAI(true);
     try {
       const aiQs = await generateQuestionsAI(aiTopic, 5);
@@ -92,7 +120,7 @@ const ManagerDashboard: React.FC = () => {
 
   const handleSaveQuestion = async (id: string) => {
     const q = questions.find(item => item.id === id);
-    if (!q) return;
+    if (!q || !hasPermission) return;
     setSavingId(id);
     await supabase.from('questions').update({
       content: q.content,
@@ -108,7 +136,7 @@ const ManagerDashboard: React.FC = () => {
   };
 
   const deleteQuestion = async (id: string) => {
-    if (window.confirm("Xóa câu hỏi này?")) {
+    if (window.confirm("Xóa câu hỏi này?") && hasPermission) {
       await supabase.from('questions').delete().eq('id', id);
       setQuestions(questions.filter(q => q.id !== id));
     }
@@ -118,7 +146,6 @@ const ManagerDashboard: React.FC = () => {
     setQuestions(questions.map(q => q.id === id ? { ...q, ...updates } : q));
   };
 
-  // --- EXCEL EXPORT ---
   const exportToExcel = () => {
     const data = questions.map((q, i) => ({
       "STT": i + 1,
@@ -141,14 +168,13 @@ const ManagerDashboard: React.FC = () => {
     XLSX.writeFile(workbook, `EduQuiz_Questions_${code}.xlsx`);
   };
 
-  // --- EXCEL IMPORT ---
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
 
   const importFromExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !matchId) return;
+    if (!file || !matchId || !hasPermission) return;
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -200,6 +226,8 @@ const ManagerDashboard: React.FC = () => {
     };
     reader.readAsBinaryString(file);
   };
+
+  if (hasPermission === null) return <div className="min-h-screen flex items-center justify-center font-black">ĐANG KIỂM TRA QUYỀN TRUY CẬP...</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-6 pb-24 font-inter">
