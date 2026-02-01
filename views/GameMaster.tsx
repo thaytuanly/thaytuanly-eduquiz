@@ -221,16 +221,18 @@ const GameMaster: React.FC = () => {
           </div>
 
           <div className="flex flex-col min-h-0">
-            <h3 className="font-black text-[10px] uppercase text-slate-500 mb-4 border-b border-white/5 pb-2 tracking-widest">Xếp hạng & Thí sinh</h3>
+            <h3 className="font-black text-[10px] uppercase text-slate-500 mb-4 border-b border-white/5 pb-2 tracking-widest">Danh sách thí sinh tham gia</h3>
             <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
-              {gameState.players.sort((a,b) => b.score - a.score).map((p, idx) => {
+              {/* Theo yêu cầu: Không xếp theo điểm, giữ nguyên thứ tự thời gian tham gia (được Hook handle) */}
+              {gameState.players.map((p, idx) => {
                 const resp = syncedResponses.find(r => r.player_id === p.id);
                 return (
                   <div key={p.id} className="bg-white/5 p-4 rounded-[28px] border border-white/5 transition-all hover:bg-white/[0.08]">
                     <div className="flex justify-between items-center mb-2">
                       <div className="flex items-center gap-2 overflow-hidden">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 ${idx === 0 ? 'bg-yellow-400 text-indigo-950' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</div>
-                        <span className="font-black text-xs truncate">{p.name}</span>
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 bg-slate-800 text-slate-400">{idx + 1}</div>
+                        {/* Tiền tố số thứ tự trước tên */}
+                        <span className="font-black text-xs truncate">{idx + 1}. {p.name}</span>
                       </div>
                       <input type="number" value={p.score} onChange={(e) => updatePlayerScore(p.id, parseInt(e.target.value) || 0)} className="w-12 bg-transparent text-emerald-400 font-black text-right outline-none text-sm" />
                     </div>
