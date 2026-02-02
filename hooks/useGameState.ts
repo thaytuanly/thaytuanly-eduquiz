@@ -61,14 +61,25 @@ export const useGameState = (role: 'MANAGER' | 'PLAYER' | 'SPECTATOR', initialCo
       }));
 
       if (match.current_question_index >= 0) {
-        const currentQ = match.questions.find((q: any) => q.sort_order === match.current_question_index) || match.questions[match.current_question_index];
-        if (currentQ) {
-          const { data: resp } = await supabase.from('responses').select('*').eq('question_id', currentQ.id);
-          setResponses(resp || []);
-        }
-      } else {
-        setResponses([]);
-      }
+  const mappedQuestions = mapQuestions(match.questions);
+  const currentQ = mappedQuestions[match.current_question_index];
+  
+  if (currentQ) {
+    const { data: resp } = await supabase
+      .from('responses')
+      .select('*')
+      .eq('question_id', currentQ.id);
+    
+    // CHỈ CẬP NHẬT NẾU CÓ DỮ LIỆU MỚI
+    if (resp && resp.length > 0) {
+      setResponses(resp);
+    }
+    // Nếu resp rỗng nhưng đang trong trạng thái SHOWING_RESULTS, 
+    // ta giữ nguyên responses cũ, không set rỗng.
+  }
+} else {
+  setResponses([]); // Chỉ xóa sạch khi về màn hình chờ (Index -1)
+}
       isInitialFetched.current = true;
     } catch (e) {
       console.error("Supabase Sync Error:", e);
