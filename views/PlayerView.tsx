@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGameState } from '../hooks/useGameState';
@@ -132,10 +131,12 @@ const PlayerView: React.FC = () => {
   const myPlayerData = gameState.players.find(p => p.id === myPlayerId);
   const isTimeUp = localTimeLeft <= 0;
   const buzzerRank = gameState.buzzerP1Id === myPlayerId ? 1 : gameState.buzzerP2Id === myPlayerId ? 2 : null;
-  const myResponse = responses.find(r => r.player_id === myPlayerId);
+  
+  // SỬA LỖI TẠI ĐÂY: Tìm chính xác response theo câu hỏi hiện tại
+  const myResponse = responses.find(r => r.player_id === myPlayerId && r.question_id === currentQ?.id);
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col pb-40 font-lexend">
+    <div className="min-h-screen bg-slate-100 flex flex-col pb-40 font-lexend relative">
       <header className="bg-white px-6 py-4 shadow flex justify-between items-center sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black uppercase">{name[0]}</div>
@@ -187,13 +188,20 @@ const PlayerView: React.FC = () => {
               ) : (
                 <div className="bg-white p-10 rounded-[40px] text-center border-4 border-emerald-50 shadow-xl animate-in zoom-in">
                   {gameState.isAnswerRevealed ? (
-                    <>
-                       <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 ${myResponse?.is_correct ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                         {myResponse?.is_correct ? '👍' : '👎'}
-                       </div>
-                       <p className="text-[10px] font-black uppercase mb-1">{myResponse?.is_correct ? 'CHÍNH XÁC!' : 'TIẾC QUÁ...'}</p>
-                       <p className="text-2xl font-black text-slate-800">+{myResponse?.is_correct ? myResponse.points_earned : 0} điểm</p>
-                    </>
+                    /* SỬA LOGIC HIỂN THỊ KẾT QUẢ ĐỂ TRÁNH NHẢY "RẤT TIẾC" */
+                    myResponse ? (
+                      <>
+                         <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 ${myResponse.is_correct ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                           {myResponse.is_correct ? '👍' : '👎'}
+                         </div>
+                         <p className="text-[10px] font-black uppercase mb-1">{myResponse.is_correct ? 'CHÍNH XÁC!' : 'TIẾC QUÁ...'}</p>
+                         <p className="text-2xl font-black text-slate-800">+{myResponse.is_correct ? myResponse.points_earned : 0} điểm</p>
+                      </>
+                    ) : (
+                      <div className="animate-pulse">
+                        <p className="text-slate-400 font-black uppercase text-[10px]">Đang tính toán kết quả...</p>
+                      </div>
+                    )
                   ) : (
                     <>
                        <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 animate-pulse">⏳</div>
@@ -208,98 +216,58 @@ const PlayerView: React.FC = () => {
             </div>
           </div>
         ) : (
-  <div className="flex-1 flex flex-col p-5 overflow-y-auto bg-slate-50 custom-scrollbar">
-    {/* Header thể lệ */}
-    <div className="text-center mb-6">
-      <div className="inline-block px-3 py-1 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-2">
-        Waiting for Host
-      </div>
-      <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Thể Lệ Cuộc Thi</h2>
-    </div>
-
-    {/* Danh sách các dạng câu hỏi */}
-    <div className="space-y-4 pb-10">
-      
-      {/* 1. Trắc nghiệm */}
-      <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-white">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-lg">📋</div>
-          <h3 className="font-black text-slate-800 uppercase italic">1. Trắc nghiệm</h3>
-        </div>
-        <div className="space-y-2 text-sm text-slate-600 font-medium">
-          <p>• Chọn 1 đáp án đúng và bấm <span className="text-indigo-600 font-bold">Gửi đáp án</span>.</p>
-          <div className="flex justify-between items-center bg-slate-50 p-2 rounded-xl">
-             <span className="text-emerald-600">✔ Đúng: +100% điểm</span>
-             <span className="text-slate-400">✖ Sai: 0 điểm</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Trả lời ngắn */}
-      <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-white">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-lg">⌨️</div>
-          <h3 className="font-black text-slate-800 uppercase italic">2. Trả lời ngắn</h3>
-        </div>
-        <div className="space-y-2 text-sm text-slate-600 font-medium">
-          <p>• Nhập câu trả lời vào ô trống và bấm <span className="text-indigo-600 font-bold">Gửi đáp án</span>.</p>
-          <div className="flex justify-between items-center bg-slate-50 p-2 rounded-xl">
-             <span className="text-emerald-600">✔ Đúng: +100% điểm</span>
-             <span className="text-slate-400">✖ Sai: 0 điểm</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Bấm chuông */}
-      <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-indigo-100">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center text-lg">⚡</div>
-          <h3 className="font-black text-slate-800 uppercase italic">3. Bấm chuông</h3>
-        </div>
-        <div className="space-y-3">
-          <p className="text-sm text-slate-600 font-medium">• 2 người nhanh tay nhất giành quyền trả lời.</p>
-          
-          <div className="space-y-2">
-            <div className="p-3 bg-rose-50 rounded-2xl border border-rose-100">
-              <p className="text-[10px] font-black text-rose-600 uppercase mb-1">Hạng 1 (Nhanh nhất)</p>
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-emerald-700">Đúng +100%</span>
-                <span className="text-rose-700">Sai -50%</span>
+          /* PHẦN LOBBY THỂ LỆ */
+          <div className="flex-1 flex flex-col p-5 overflow-y-auto bg-slate-50 custom-scrollbar">
+            <div className="text-center mb-6">
+              <div className="inline-block px-3 py-1 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest mb-2">
+                Waiting for Host
               </div>
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Thể Lệ Cuộc Thi</h2>
             </div>
-
-            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100">
-              <p className="text-[10px] font-black text-amber-600 uppercase mb-1">Hạng 2 (Nhanh nhì)</p>
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-emerald-700">Đúng +50%</span>
-                <span className="text-rose-700">Sai -50%</span>
+            <div className="space-y-4 pb-10">
+              <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-white">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-lg">📋</div>
+                  <h3 className="font-black text-slate-800 uppercase italic">1. Trắc nghiệm</h3>
+                </div>
+                <div className="space-y-2 text-sm text-slate-600 font-medium">
+                  <p>• Chọn 1 đáp án đúng và bấm <span className="text-indigo-600 font-bold">Gửi đáp án</span>.</p>
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-white">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-lg">⌨️</div>
+                  <h3 className="font-black text-slate-800 uppercase italic">2. Trả lời ngắn</h3>
+                </div>
+                <div className="space-y-2 text-sm text-slate-600 font-medium">
+                  <p>• Nhập câu trả lời vào ô trống và bấm <span className="text-indigo-600 font-bold">Gửi đáp án</span>.</p>
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-[28px] shadow-sm border-2 border-indigo-100">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center text-lg">⚡</div>
+                  <h3 className="font-black text-slate-800 uppercase italic">3. Bấm chuông</h3>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-sm text-slate-600 font-medium">• 2 người nhanh tay nhất giành quyền trả lời.</p>
+                </div>
               </div>
             </div>
           </div>
-          
-          <p className="text-[10px] text-slate-400 italic text-center leading-tight">
-            *Người thứ 2 chỉ được trả lời nếu người thứ 1 sai.
-          </p>
-        </div>
-      </div>
-
-      {/* Thông báo chờ */}
-      <div className="text-center pt-4 animate-pulse">
-        <p className="text-slate-400 font-bold text-xs uppercase tracking-tighter">Trận đấu sắp bắt đầu, hãy chuẩn bị!</p>
-      </div>
-    </div>
-  </div>
-)}
+        )}
       </main>
 
+      {/* Nút bấm chuông cố định */}
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-xl border-t flex items-center justify-between gap-6 z-40">
         <button onClick={handleBuzzer} disabled={!!buzzerRank || isTimeUp || gameState.status !== GameStatus.QUESTION_ACTIVE} className={`flex-1 py-6 rounded-[28px] font-black text-2xl transition-all active:scale-95 ${buzzerRank ? 'bg-slate-200 text-slate-400' : 'bg-rose-600 text-white shadow-xl shadow-rose-200'}`}>
           {buzzerRank ? `ĐÃ NHẤN #${buzzerRank}` : 'BẤM CHUÔNG!'}
         </button>
       </div>
-     <footer className="p-4 lg:mt-0 text-slate-400 font-medium text-[10px] text-center shrink-0">
-          &copy; 2026 Thầy Tuấn Lý dưới sự trợ giúp của Google.
-        </footer>  
+
+      {/* FOOTER BẢN QUYỀN - Đã bổ sung vào cuối trang */}
+      <footer className="w-full py-4 text-slate-400 font-medium text-[10px] text-center shrink-0 z-50">
+        &copy; 2026 Thầy Tuấn Lý dưới sự trợ giúp của Google.
+      </footer>
     </div>
   );
 };
