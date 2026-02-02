@@ -73,22 +73,26 @@ const GameMaster: React.FC = () => {
     refresh();
   };
 
-  const revealAnswerAndScore = async () => {
-    if (!matchId || !gameState || gameState.currentQuestionIndex < 0 || gameState.isAnswerRevealed || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      await supabase.from('matches').update({ is_answer_revealed: true, status: GameStatus.SHOWING_RESULTS }).eq('id', matchId);
-      for (const resp of syncedResponses) {
-        if (resp.is_correct && resp.points_earned > 0) {
-          const player = gameState.players.find(p => p.id === resp.player_id);
-          if (player) {
-            await supabase.from('players').update({ score: player.score + resp.points_earned }).eq('id', player.id);
-          }
-        }
-      }
-    } catch (e) { console.error(e); }
-    finally { setIsProcessing(false); }
-  };
+ const revealAnswerAndScore = async () => {
+  if (!matchId || !gameState || gameState.currentQuestionIndex < 0 || gameState.isAnswerRevealed || isProcessing) return;
+  
+  setIsProcessing(true);
+  try {
+    // Gọi hàm RPC đã tạo ở Bước 1
+    const { error } = await supabase.rpc('reveal_and_award_points', { 
+      target_match_id: matchId 
+    });
+
+    if (error) throw error;
+
+    // Lưu ý: Không cần gọi thêm lệnh update nào khác ở đây nữa
+  } catch (e) {
+    console.error("Lỗi khi thực hiện RPC:", e);
+    alert("Có lỗi xảy ra khi cộng điểm!");
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const updatePlayerScore = async (playerId: string, newScore: number) => {
     await supabase.from('players').update({ score: newScore }).eq('id', playerId);
